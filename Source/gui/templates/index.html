@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bloxorz Solver</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+</head>
+<body>
+  <main>
+    <div id="stage">
+      <h1 class="brand">BLOXORZ</h1>
+      <div id="game-announcement" class="game-announcement" aria-live="assertive" hidden></div>
+    </div>
+    <aside>
+      <label for="level-select">Level</label>
+      <select id="level-select"></select>
+      <div class="row">
+        <button id="btn-new">New Game</button>
+        <button id="btn-restart">Restart</button>
+      </div>
+
+      <h2>Solvers</h2>
+      <div class="solvers">
+        <button data-algo="bfs">BFS</button>
+        <button disabled title="Not implemented">DFS (IDS)</button>
+        <button disabled title="Not implemented">UCS</button>
+        <button disabled title="Not implemented">A* (not implemented)</button>
+      </div>
+
+      <h2>Game</h2>
+      <p id="hud-status">Playing</p>
+      <p id="hud-moves">Moves: 0</p>
+      <p id="msg"></p>
+
+      <section id="metrics-panel" hidden>
+        <h2>Search metrics</h2>
+        <dl id="stats">
+          <dt>Search time</dt><dd id="st-time">-</dd>
+          <dt>Expanded nodes</dt><dd id="st-nodes">-</dd>
+          <dt>Peak memory</dt><dd id="st-mem">-</dd>
+          <dt>Solution length</dt><dd id="st-len">-</dd>
+        </dl>
+      </section>
+      <p class="hint"><strong>Controls:</strong><br>Arrows / WASD: roll.<br>Space: switch cube.</p>
+    </aside>
+  </main>
+  <script type="module" src="/static/main.js"></script>
+</body>
+</html>

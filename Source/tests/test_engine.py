@@ -109,6 +109,30 @@ class BridgeTiles(unittest.TestCase):
         res = apply_move(lv, State(0, 1, O.STAND, 1), D.RIGHT)
         self.assertEqual(res.state.bridges, 1)
 
+    def test_soft_switch_opens_bridge_when_entered(self):
+        lv = make(
+            ["S.o=G", "....."],
+            bridges={"b1": {"cells": [[0, 3]], "open": False}},
+            switches=[{"pos": [0, 2], "type": "soft", "targets": ["b1"], "mode": "open"}],
+        )
+        result = apply_move(lv, initial_state(lv), D.RIGHT)
+        self.assertTrue(result.legal)
+        self.assertEqual(result.state.bridges, 1)
+
+    def test_heavy_switch_requires_standing(self):
+        lv = make(
+            ["S.x..", "...=G"],
+            bridges={"b1": {"cells": [[1, 3]], "open": False}},
+            switches=[{"pos": [0, 2], "type": "heavy", "targets": ["b1"], "mode": "open"}],
+        )
+        lying = apply_move(lv, State(0, 1, O.STAND), D.RIGHT)
+        self.assertTrue(lying.legal)
+        self.assertEqual(lying.state.bridges, 0)
+
+        standing = apply_move(lv, State(0, 3, O.HORIZ), D.LEFT)
+        self.assertTrue(standing.legal)
+        self.assertEqual(standing.state.bridges, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
