@@ -1,43 +1,45 @@
-# Các class hàm giải tìm đường đi nên được xây dựng bằng việc
-#       Kế thừa tìm hàm này
-from solvers.utils.graph import MazeGraph
+import time
+import tracemalloc
+from dataclasses import dataclass
+from typing import Callable
+from solvers.utils.graph import MazeGraph, StateType
+
+
+@dataclass
+class SolverResult:
+    actions: list[str]        # Chuỗi thao tác ['U', 'R', 'D', ...]
+    solution_length: int      # Số bước đi = len(actions)
+    expanded_nodes: int       # Số lượng trạng thái đã mở rộng
+    search_time_ms: float     # Thời gian chạy (mili-giây)
+    peak_memory_kb: float     # Bộ nhớ đỉnh (KB)
 
 
 class SolverBaseModel:
-    def __init__(self, graph: MazeGraph, 
-                x_start: int,
-                y_start: int,
-                rec_state: int,
-                solver: function):
+    def __init__(self, graph: MazeGraph, solver_func: Callable):
         """
-            Args:
-                graph (MazeGraph): đồ thị cần được giải.
-                x_start (int): vị trí bắt đầu trên trục hoành của hình chữ nhật.
-                y_start (int): vị trí bắt đầu trên trục tung của hình chữ nhật.
-                rec_state (int): trạng thái của hình chữ nhật, 0: đứng, 1: nằm.
+        Args:
+            graph (MazeGraph): Đối tượng mê cung (chứa sẵn start_state và goal_pos).
+            solver_func (Callable): Hàm thuật toán từ searches.py.
         """
         self.graph = graph
-        self.x_start = x_start
-        self.y_start = y_start
-        self.rec_init_state = rec_state
-        self.sovler = solver
+        self.solver_func = solver_func
 
-    def solve(self):
-        """Tìm lời giải
-        Args:
-            None
-        Returns:
-            + **Danh sách các thao tác cần thực hiện** có dạng **list[str]** để đi từ điểm đầu đến đích
-                hoặc **danh sách rỗng nếu không có lời giải**
-        """
+    def solve(self) -> SolverResult:
+        """Thực thi thuật toán tìm kiếm và tự động đo lường Time, Memory."""
+        tracemalloc.start()
+        start_time = time.perf_counter()
 
-        path = self.sovler()
+        # Mọi hàm trong searches.py đều trả về: (danh_sách_action, số_node_đã_duyệt)
+        actions, expanded_nodes = self.solver_func(self.graph)
 
-    def _path_to_action(self):
-        """Chuyển đường đi từ điểm xuất phát đến đích thành các thao tác di chuyển cần thực hiện"""
-        pass
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        _, peak_bytes = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
 
-
-
-
-
+        return SolverResult(
+            actions=actions,
+            solution_length=len(actions),
+            expanded_nodes=expanded_nodes,
+            search_time_ms=round(elapsed_ms, 3),
+            peak_memory_kb=round(peak_bytes / 1024.0, 2),
+        )

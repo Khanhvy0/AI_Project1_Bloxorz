@@ -1,31 +1,24 @@
-from solvers.utils.sovler import SolverBaseModel
+from functools import partial
+from solvers.utils.sovler import SolverBaseModel, SolverResult
 from solvers.utils.graph import MazeGraph
+from solvers.utils.searches import a_star_search
 
-
-
-
-def heuristic_func(type: str="l1") -> function:
-    pass
-
-def a_star_search():
-    pass
 
 class AStarSovler(SolverBaseModel):
-    """Thuật toán giải tìm đi cho mê cung dựa trên công thức Heuristic  
-            `f(x) = g(x) + h(x)`  
-        
+    """Thuật toán giải tìm đi cho mê cung dựa trên công thức Heuristic
+    **Công thức:** `f(x) = g(x) + h(x)`
+
+    Args:
+        graph (dict): đồ thị của mê cung cần giải
+        heurisitc (str): tên hàm heuristic được sử dụng.
     """
-    def __init__(self, graph: MazeGraph,
-                x_start: int,
-                y_start: int,
-                rec_state: int,
-                heuristic_type: str):
-        super().__init__(graph, x_start, y_start, rec_state, a_star_search)
-        self.heuristic_func = heuristic_func(heuristic_type)
 
-    def search():
-        return super().search()
+    def __init__(self, graph: MazeGraph, heuristic: str = "l1"):
+        solver_func = partial(a_star_search, heuristic=heuristic)
+        super().__init__(graph, solver_func)
 
+    def search(self) -> SolverResult:
+        return super().solve()
 
 
 
