@@ -7,7 +7,15 @@ tests/     unit test
 docs/      INTERFACE.md (đặc tả cho cả nhóm)
 ```
 
+## Cách chạy
 ```bash
+# Tạo môi trường ảo( .venv) để cô lập chương trình
+python -m venv .venv
+# Sử dụng môi trường ảo
+# Linux
+source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
 
 # Chạy riêng một file test
 python -m unittest tests.test_transitions -v
