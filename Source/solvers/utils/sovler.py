@@ -1,45 +1,74 @@
-import time
-import tracemalloc
+"""Lớp cha chung: chạy thuật toán, đo riêng thời gian/bộ nhớ và đóng gói kết quả."""
+
 from dataclasses import dataclass
 from typing import Callable
-from solvers.utils.graph import MazeGraph, StateType
+
+from utils.measure import _measure_runs
 
 
 @dataclass
 class SolverResult:
-    actions: list[str]        # Chuỗi thao tác ['U', 'R', 'D', ...]
-    solution_length: int      # Số bước đi = len(actions)
-    expanded_nodes: int       # Số lượng trạng thái đã mở rộng
-    search_time_ms: float     # Thời gian chạy (mili-giây)
-    peak_memory_kb: float     # Bộ nhớ đỉnh (KB)
+    actions: list[str]
+    solution_length: int
+    expanded_nodes: int
+    search_time_ms: float
+    peak_memory_kb: float
+    solved: bool = True
+    solution_cost: float = 0.0
 
 
 class SolverBaseModel:
-    def __init__(self, graph: MazeGraph, solver_func: Callable):
-        """
-        Args:
-            graph (MazeGraph): Đối tượng mê cung (chứa sẵn start_state và goal_pos).
-            solver_func (Callable): Hàm thuật toán từ searches.py.
-        """
+    def __init__(self, graph, solver_func: Callable):
         self.graph = graph
         self.solver_func = solver_func
 
-    def solve(self) -> SolverResult:
-        """Thực thi thuật toán tìm kiếm và tự động đo lường Time, Memory."""
-        tracemalloc.start()
-        start_time = time.perf_counter()
-
-        # Mọi hàm trong searches.py đều trả về: (danh_sách_action, số_node_đã_duyệt)
-        actions, expanded_nodes = self.solver_func(self.graph)
-
-        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        _, peak_bytes = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-
-        return SolverResult(
-            actions=actions,
-            solution_length=len(actions),
-            expanded_nodes=expanded_nodes,
-            search_time_ms=round(elapsed_ms, 3),
-            peak_memory_kb=round(peak_bytes / 1024.0, 2),
+    def run_search(self):
+        """Chạy một lần, không đo; dùng chung cho solve() và benchmark."""
+        actions, expanded = self.solver_func(self.graph)
+        # TV3 dùng [] khi vô nghiệm; phân biệt với lời giải rỗng tại goal ban đầu.
+        solved = actions is not None and (
+            bool(actions) or self.graph.is_goal(self.graph.start_state)
         )
+        if not solved:
+            return None, {"expanded_nodes": expanded, "solution_cost": 0.0}
+
+        # Cộng cost từ chính graph mà thuật toán đã sử dụng.
+        state = self.graph.start_state
+        total_cost = 0.0
+        for action in actions:
+            for move, next_state, step_cost in self.graph.get_neighbors(state):
+                if move == action:
+                    state = next_state
+                    total_cost += step_cost
+                    break
+            else:
+                raise ValueError(f"Thuật toán trả nước đi không hợp lệ: {action}")
+        if not self.graph.is_goal(state):
+            raise ValueError("Đường đi của thuật toán chưa tới goal")
+        return actions, {"expanded_nodes": expanded, "solution_cost": total_cost}
+
+    def solve(self) -> SolverResult:
+        """Một lượt thời gian và một lượt bộ nhớ riêng, cùng quy ước cho mọi solver."""
+        actions, stats = _measure_runs(self.run_search)
+        return SolverResult(
+            actions=actions if actions is not None else [],
+            solution_length=stats["solution_length"],
+            expanded_nodes=stats["expanded_nodes"],
+            search_time_ms=stats["time_ms"],
+            peak_memory_kb=stats["memory_kb"],
+            solved=actions is not None,
+            solution_cost=stats["solution_cost"],
+        )
+
+    def search(self) -> SolverResult:
+        return self.solve()
+
+
+def solve_level_raw(solver_class, level, **kwargs):
+    """Adapter giữ API TV1: Level -> (list[Direction] | None, stats chưa đo)."""
+    from solvers.utils.engine_graph import EngineGraph, ACTION_TO_DIRECTION
+
+    solver = solver_class(EngineGraph(level), **kwargs)
+    actions, stats = solver.run_search()
+    path = None if actions is None else [ACTION_TO_DIRECTION[action] for action in actions]
+    return path, stats

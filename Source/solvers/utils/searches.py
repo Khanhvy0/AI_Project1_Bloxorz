@@ -15,20 +15,23 @@ def ln_norm(sour_rc: tuple[int, int], dest_rc: tuple[int, int], n: int) -> float
     return dist
 
 
-def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
-    """Khoảng cách Manhattan chia 2 + Phạt hướng nằm (Orientation-aware term)."""
-    r, c, orient, _ = state
-    h = ln_norm((r, c), goal_rc, 1) / 2.0
-    # Nếu khối gỗ đang nằm (orient != STANDING), nó cần ít nhất 1 bước dựng đứng để lọt xuống lỗ
-    if orient != STANDING and (r, c) != goal_rc:
-        h += 0.5
+def _pose(state):
+    """Đọc cả State của TV1 và tuple state của MazeGraph TV3."""
+    if hasattr(state, "r"):
+        return state.r, state.c, state.orient
+    return state[:3]
 
-    return h
+
+def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
+    """Manhattan / 2: mỗi nước dời ô neo nhiều nhất 2 ô, với cost tối thiểu 1."""
+    r, c, _ = _pose(state)
+    # Không cộng phạt nằm: H(0,1) -> goal(0,3) chỉ tốn 1 bước.
+    return ln_norm((r, c), goal_rc, 1) / 2.0
 
 
 def l2_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
     """Khoảng cách Euclid chia 2."""
-    r, c, _, _ = state
+    r, c, _ = _pose(state)
 
     return ln_norm((r, c), goal_rc, 2) / 2.0
 
@@ -88,11 +91,10 @@ def a_star_search(
         if current_g > g_score.get(current, float("inf")):
             continue
 
-        expanded_nodes += 1
-
         if graph.is_goal(current):
             return reconstruct_actions(came_from, current), expanded_nodes
 
+        expanded_nodes += 1
         for action, neighbor, step_cost in graph.get_neighbors(current):
             tentative_g = current_g + step_cost
             # Tính toán chi phí từ các đỉnh lân cận đến đích( heuristic)
@@ -131,10 +133,9 @@ def ucs_search(graph: MazeGraph) -> tuple[list[str], int]:
         if current_cost > cost_so_far.get(current, float("inf")):
             continue
 
-        expanded_nodes = 1
-
         if graph.is_goal(current):
             return reconstruct_actions(came_from, current), expanded_nodes
+        expanded_nodes += 1
         # Mở rộng ra khu vực lân cận
         for action, neighbor, step_cost in graph.get_neighbors(current):
             new_cost = current_cost + step_cost
@@ -148,19 +149,65 @@ def ucs_search(graph: MazeGraph) -> tuple[list[str], int]:
     return [], expanded_nodes
 
 
-# TO DO( của thành viên khác)
-def bfs_search(graph: MazeGraph) -> tuple[list[str], int]:
-    # Gợi ý khung cho thành viên nhóm:
-    # - Dùng deque([graph.start_state])
-    # - Mỗi lần popleft() thì tăng expanded_nodes += 1
-    # - Duyệt `for action, neighbor, _ in graph.get_neighbors(current):`
-    # - Trả về `reconstruct_actions(came_from, current), expanded_nodes`
-    pass
+def bfs_search(graph) -> tuple[list[str], int]:
+    """BFS tối ưu số bước. parent vừa dựng path vừa chống lặp toàn bộ state."""
+    start = graph.start_state
+    queue = deque([start])
+    parent = {start: (None, None)}
+    expanded = 0
+    while queue:
+        state = queue.popleft()
+        if graph.is_goal(state):
+            return reconstruct_actions(parent, state), expanded
+        expanded += 1
+        for action, next_state, _ in graph.get_neighbors(state):
+            if next_state not in parent:
+                parent[next_state] = (state, action)
+                queue.append(next_state)
+    return [], expanded
 
 
-# TO DO( của thành viên khác)
-def dfs_search(graph: MazeGraph) -> tuple[list[str], int]:
-    # Gợi ý khung cho thành viên nhóm:
-    # - Dùng stack = [graph.start_state]
-    # - Trả về `reconstruct_actions(came_from, current), expanded_nodes`
-    pass
+def dfs_search(graph) -> tuple[list[str], int]:
+    """DFS dùng stack, không tối ưu; ưu tiên U, D, L, R theo thứ tự graph trả."""
+    start = graph.start_state
+    stack = [start]
+    visited = {start}
+    parent = {start: (None, None)}
+    expanded = 0
+    while stack:
+        state = stack.pop()
+        if graph.is_goal(state):
+            return reconstruct_actions(parent, state), expanded
+        expanded += 1
+        for action, next_state, _ in reversed(graph.get_neighbors(state)):
+            if next_state not in visited:
+                visited.add(next_state)
+                parent[next_state] = (state, action)
+                stack.append(next_state)
+    return [], expanded
+
+
+def ids_search(graph, max_depth=200) -> tuple[list[str], int]:
+    """IDS; [] có thể là vô nghiệm hoặc đã tới giới hạn, lớp cha phân biệt goal."""
+    if isinstance(max_depth, bool) or not isinstance(max_depth, int) or max_depth < 0:
+        raise ValueError("max_depth phải là số nguyên không âm")
+    expanded = 0
+    for limit in range(max_depth + 1):
+        stack = [(graph.start_state, [])]
+        best_depth = {graph.start_state: 0}
+        while stack:
+            state, actions = stack.pop()
+            depth = len(actions)
+            if depth > best_depth[state]:
+                continue
+            if graph.is_goal(state):
+                return actions, expanded
+            if depth >= limit:
+                continue
+            expanded += 1
+            for action, next_state, _ in reversed(graph.get_neighbors(state)):
+                new_depth = depth + 1
+                if next_state not in best_depth or new_depth < best_depth[next_state]:
+                    best_depth[next_state] = new_depth
+                    stack.append((next_state, actions + [action]))
+    return [], expanded
