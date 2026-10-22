@@ -1,11 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ROLL_MS = 220, REPLAY_ROLL_MS = 160, REPLAY_GAP_MS = 100;
 const COLORS = { floor: 0x5b6b8c, fragile: 0xd9a441, goal: 0x07090d, bridge: 0x3fb5a8,
   block: 0xc8553d, soft: 0xf2f2f2, heavy: 0xff6b81, split: 0x6ec1ff };
+let boardZoom = 1;
 
 function createBrickTexture() {
   const canvas = document.createElement("canvas");
@@ -45,12 +47,65 @@ function createBrickTexture() {
   return texture;
 }
 
-const brickTexture = createBrickTexture();
+function createIceTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+  gradient.addColorStop(0, "#d9f8ff");
+  gradient.addColorStop(0.48, "#8ed8ed");
+  gradient.addColorStop(1, "#c6f3ff");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
 
-async function api(path, body) {
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.lineWidth = 2;
+  for (const points of [
+    [[12, 0], [31, 29], [24, 52], [42, 72]],
+    [[88, 0], [72, 24], [91, 43], [78, 67], [103, 91]],
+    [[0, 96], [22, 82], [39, 105], [34, 128]],
+    [[112, 128], [99, 111], [118, 91], [128, 78]],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(...points[0]);
+    points.slice(1).forEach((point) => ctx.lineTo(...point));
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const brickTexture = createBrickTexture();
+const iceTexture = createIceTexture();
+const iceTileGeometry = new RoundedBoxGeometry(0.96, 0.2, 0.96, 3, 0.07);
+const puddleShape = new THREE.Shape();
+puddleShape.moveTo(-0.42, -0.16);
+puddleShape.bezierCurveTo(-0.32, -0.28, -0.08, -0.23, 0.02, -0.28);
+puddleShape.bezierCurveTo(0.2, -0.35, 0.42, -0.23, 0.42, -0.08);
+puddleShape.bezierCurveTo(0.44, 0.08, 0.27, 0.18, 0.08, 0.17);
+puddleShape.bezierCurveTo(-0.12, 0.24, -0.38, 0.16, -0.42, -0.02);
+puddleShape.bezierCurveTo(-0.46, -0.08, -0.45, -0.12, -0.42, -0.16);
+const puddleGeometry = new THREE.ShapeGeometry(puddleShape, 12);
+const puddleMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0x68cbe8,
+  roughness: 0.08,
+  metalness: 0.06,
+  clearcoat: 1,
+  clearcoatRoughness: 0.04,
+  transparent: true,
+  opacity: 0.78,
+});
+const dripGeometry = new THREE.SphereGeometry(0.035, 8, 6);
+const dripTracks = [];
+const persistentGeometries = new Set([iceTileGeometry, puddleGeometry, dripGeometry]);
+const persistentMaterials = new Set([puddleMaterial]);
+
+async function api(path, body, options = {}) {
   const res = await fetch(path, body
-    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
-    : undefined);
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), ...options }
+    : options);
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json();
 }
@@ -58,7 +113,7 @@ async function api(path, body) {
 /* ---------- scene ---------- */
 const stage = $("stage");
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x14181f);
+scene.background = new THREE.Color(0x2f4f4f);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -81,7 +136,12 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
-(function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop(now = 0) {
+  updateDrips(now);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
 
 /* ---------- board ---------- */
 let bridgeTiles = {};
@@ -129,23 +189,127 @@ function clearGroup(group) {
         materials.add(material);
     }
   });
-  geometries.forEach((geometry) => geometry.dispose());
-  materials.forEach((material) => material.dispose());
+  geometries.forEach((geometry) => {
+    if (!persistentGeometries.has(geometry)) geometry.dispose();
+  });
+  materials.forEach((material) => {
+    if (!persistentMaterials.has(material)) material.dispose();
+  });
   group.clear();
+}
+
+function updateDrips(now) {
+  dripTracks.forEach((drip) => {
+    const progress = ((now / drip.duration + drip.phase) % 1);
+    drip.mesh.position.y = drip.startY - progress * 0.48;
+    const fade = Math.sin(progress * Math.PI);
+    drip.mesh.material.opacity = fade * 0.82;
+    drip.mesh.visible = progress > 0.04 && progress < 0.9;
+  });
 }
 
 function buildBoard(level) {
   clearGroup(boardGroup);
   bridgeTiles = {};
+  dripTracks.length = 0;
   const rows = level.grid.length, cols = level.grid[0].length;
   const bridgeOf = {};
   for (const [id, b] of Object.entries(level.bridges || {}))
     for (const [r, c] of b.cells) bridgeOf[`${r},${c}`] = id;
 
+  const iceMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xb6edfa,
+    map: iceTexture,
+    roughness: 0.2,
+    metalness: 0.04,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.16,
+    emissive: 0x164b5b,
+    emissiveIntensity: 0.16,
+  });
+  const icicleMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xb9f1ff,
+    roughness: 0.14,
+    metalness: 0.02,
+    clearcoat: 1,
+    clearcoatRoughness: 0.1,
+    transparent: true,
+    opacity: 0.88,
+    emissive: 0x1a6275,
+    emissiveIntensity: 0.2,
+  });
+  const dripMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xb9f5ff,
+    roughness: 0.04,
+    clearcoat: 1,
+    transparent: true,
+    opacity: 0,
+  });
+  const hasBoardCell = (r, c) =>
+    r >= 0 && r < rows && c >= 0 && c < cols &&
+    level.grid[r][c] !== "." && level.grid[r][c] !== " ";
+
   level.grid.forEach((line, r) => [...line].forEach((ch, c) => {
     if (ch === "." || ch === " ") return;
     if (ch === "g") {
       addGoalHole(r, c);
+      return;
+    }
+    if (ch === "o") {
+      const tile = new THREE.Mesh(iceTileGeometry, iceMaterial);
+      tile.position.set(c, -0.1, r);
+      boardGroup.add(tile);
+
+      if ((r * 7 + c * 11) % 4 !== 0) {
+        const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
+        puddle.rotation.x = -Math.PI / 2;
+        puddle.position.set(c + ((r + c) % 2 ? 0.12 : -0.1), 0.006, r);
+        puddle.scale.set(
+          0.62 + ((r + c) % 3) * 0.12,
+          0.62 + ((r * 2 + c) % 3) * 0.1,
+          1
+        );
+        boardGroup.add(puddle);
+      }
+
+      const exposedEdges = [
+        { open: !hasBoardCell(r - 1, c), x: c, z: r - 0.47, dx: 0, dz: -1 },
+        { open: !hasBoardCell(r + 1, c), x: c, z: r + 0.47, dx: 0, dz: 1 },
+        { open: !hasBoardCell(r, c - 1), x: c - 0.47, z: r, dx: -1, dz: 0 },
+        { open: !hasBoardCell(r, c + 1), x: c + 0.47, z: r, dx: 1, dz: 0 },
+      ];
+      exposedEdges.forEach((edge, side) => {
+        if (!edge.open) return;
+        const seed = (r * 17 + c * 31 + side * 13) % 5;
+        const height = 0.28 + seed * 0.075;
+        const alongEdge = (seed % 2 ? 0.2 : -0.2);
+        const icicle = new THREE.Mesh(
+          new THREE.ConeGeometry(0.07 + (seed % 3) * 0.018, height, 7),
+          icicleMaterial
+        );
+        icicle.rotation.z = Math.PI;
+        icicle.position.set(
+          edge.x + edge.dx * alongEdge,
+          -0.2 - height / 2,
+          edge.z + edge.dz * alongEdge
+        );
+        boardGroup.add(icicle);
+
+        const drip = new THREE.Mesh(dripGeometry, dripMaterial.clone());
+        drip.position.set(
+          edge.x + edge.dx * alongEdge,
+          -0.2 - height,
+          edge.z + edge.dz * alongEdge
+        );
+        drip.visible = false;
+        boardGroup.add(drip);
+        dripTracks.push({
+          mesh: drip,
+          startY: drip.position.y,
+          phase: ((r * 17 + c * 31 + side * 13) % 100) / 100,
+          duration: 1100 + seed * 180,
+        });
+      });
       return;
     }
     const color = { o: COLORS.floor, f: COLORS.fragile, g: COLORS.goal, b: COLORS.bridge }[ch] ?? COLORS.floor;
@@ -155,16 +319,35 @@ function buildBoard(level) {
       transparent: ch === "b",
       roughness: 0.9,
     });
-    const tile = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.2, 0.96), mat);
+    const tile = new THREE.Mesh(iceTileGeometry, mat);
     tile.position.set(c, -0.1, r);
     boardGroup.add(tile);
     if (ch === "b") (bridgeTiles[bridgeOf[`${r},${c}`]] ||= []).push(tile);
   }));
   (level.switches || []).forEach(addSwitch);
 
-  const cx = (cols - 1) / 2, cz = (rows - 1) / 2, span = Math.max(cols, rows);
+  const cx = (cols - 1) / 2, cz = (rows - 1) / 2;
   controls.target.set(cx, 0, cz);
-  camera.position.set(cx + span * 0.55, span * 0.95, cz + span * 0.95);
+  const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
+  const halfFov = Math.min(verticalHalfFov, horizontalHalfFov);
+  const boardRadius = Math.hypot(cols / 2, rows / 2, 1);
+  const distance = boardRadius / Math.sin(halfFov) * 1.15;
+  const target = controls.target;
+  camera.position.set(
+    target.x + distance * 0.37 / boardZoom,
+    target.y + distance * 0.65 / boardZoom,
+    target.z + distance * 0.65 / boardZoom
+  );
+  controls.update();
+}
+
+function adjustBoardZoom(change) {
+  const previousZoom = boardZoom;
+  boardZoom = Math.min(2, Math.max(0.5, Math.round((boardZoom + change) * 10) / 10));
+  if (boardZoom === previousZoom) return;
+  const offset = camera.position.clone().sub(controls.target);
+  camera.position.copy(controls.target).addScaledVector(offset, previousZoom / boardZoom);
   controls.update();
 }
 
@@ -335,6 +518,7 @@ function crumbleBoard(ms = 850) {
 /* ---------- game flow ---------- */
 let level = null, state = null, levels = [], busy = false, replaying = false, moves = 0;
 let metricsVisible = false;
+let solveAbortController = null, activeSolveId = null, stopRequested = false;
 
 function updateHud() {
   const el = $("hud-status");
@@ -343,7 +527,28 @@ function updateHud() {
   $("hud-moves").textContent = `Moves: ${moves}`;
 }
 const setMsg = (t) => { $("msg").textContent = t; };
-const setDisabled = (v) => document.querySelectorAll("button").forEach((b) => { b.disabled = v; });
+const setDisabled = (v) => document.querySelectorAll(
+  "button:not(.solve-prompt-action):not(#btn-solve-stop)"
+)
+  .forEach((b) => { b.disabled = v; });
+
+function askAfterSolve() {
+  const prompt = $("solve-prompt");
+  prompt.hidden = false;
+  return new Promise((resolve) => {
+    const finish = (choice) => {
+      prompt.hidden = true;
+      $("btn-solve-next").removeEventListener("click", continueClick);
+      $("btn-solve-replay").removeEventListener("click", replayClick);
+      resolve(choice);
+    };
+    const continueClick = () => finish("next");
+    const replayClick = () => finish("replay");
+    $("btn-solve-next").addEventListener("click", continueClick);
+    $("btn-solve-replay").addEventListener("click", replayClick);
+    $("btn-solve-next").focus();
+  });
+}
 
 async function announceResult(status) {
   const announcement = $("game-announcement");
@@ -418,22 +623,73 @@ function showStats(s) {
 async function solve(algo, label) {
   if (busy || replaying) return;
   replaying = true;
+  stopRequested = false;
+  activeSolveId = crypto.randomUUID();
+  solveAbortController = new AbortController();
+  $("btn-solve-stop").hidden = false;
+  $("level-select").disabled = true;
   setDisabled(true);
   try {
     await loadLevel(level.id, { showMetrics: true });
     setMsg(`Solving with ${label}...`);
-    const res = await api("/api/solve", { level_id: level.id, algo });
+    const res = await api("/api/solve", {
+      level_id: level.id,
+      algo,
+      solve_id: activeSolveId,
+    }, { signal: solveAbortController.signal });
+    activeSolveId = null;
     showStats(res.stats);
     if (!res.path) { setMsg("No solution found."); return; }
     setMsg(`Solved in ${res.path.length} moves. Replaying...`);
-    for (const a of res.path) { await act(a, REPLAY_ROLL_MS); await sleep(REPLAY_GAP_MS); }
+    for (const a of res.path) {
+      if (stopRequested) break;
+      await act(a, REPLAY_ROLL_MS);
+      if (!stopRequested) await sleep(REPLAY_GAP_MS);
+    }
+    if (stopRequested) {
+      setMsg("Solver stopped. Choose another level or solver.");
+      return;
+    }
     if (state.status === "won") {
       setMsg("Replay finished!");
-      await advanceLevel();
+      $("btn-solve-stop").hidden = true;
+      const choice = await askAfterSolve();
+      if (choice === "next") await advanceLevel();
+      else await loadLevel(level.id);
     } else if (state.status === "playing") {
       setMsg("Replay ended on an unexpected state - check engine/solver.");
     }
-  } finally { replaying = false; setDisabled(false); }
+  } catch (error) {
+    if (stopRequested) {
+      setMsg("Solver stopped. Choose another level or solver.");
+    } else {
+      throw error;
+    }
+  } finally {
+    activeSolveId = null;
+    solveAbortController = null;
+    $("btn-solve-stop").hidden = true;
+    $("level-select").disabled = false;
+    replaying = false;
+    setDisabled(false);
+  }
+}
+
+async function stopSolver() {
+  if (!replaying || stopRequested) return;
+  stopRequested = true;
+  const solveId = activeSolveId;
+  if (solveId) {
+    try {
+      await api("/api/solve/cancel", { solve_id: solveId });
+    } catch (error) {
+      solveAbortController.abort();
+      setMsg(`Could not stop solver cleanly: ${error.message}`);
+      return;
+    }
+    solveAbortController.abort();
+  }
+  setMsg("Stopping solver...");
 }
 
 /* ---------- UI wiring ---------- */
@@ -449,6 +705,9 @@ window.addEventListener("keydown", (e) => {
 document.querySelectorAll(".solvers button").forEach((b) =>
   b.addEventListener("click", () => solve(b.dataset.algo, b.textContent)));
 $("btn-restart").addEventListener("click", () => !replaying && loadLevel(level.id));
+$("btn-solve-stop").addEventListener("click", stopSolver);
+$("btn-board-smaller").addEventListener("click", () => adjustBoardZoom(-0.1));
+$("btn-board-larger").addEventListener("click", () => adjustBoardZoom(0.1));
 $("btn-new").addEventListener("click", () => {
   if (replaying) return;
   const sel = $("level-select");

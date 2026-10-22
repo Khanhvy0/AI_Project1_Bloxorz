@@ -1,0 +1,49 @@
+{
+  "name": "level_18",
+  "grid": [
+    "S..F.o..",
+    "........",
+    ".F==F...",
+    "........",
+    ".....x.G"
+  ],
+  "bridges": {
+    "b1": {
+      "cells": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "open": false
+    }
+  },
+  "switches": [
+    {
+      "pos": [
+        0,
+        5
+      ],
+      "type": "soft",
+      "targets": [
+        "b1"
+      ],
+      "mode": "toggle"
+    },
+    {
+      "pos": [
+        4,
+        5
+      ],
+      "type": "heavy",
+      "targets": [
+        "b1"
+      ],
+      "mode": "toggle"
+    }
+  ]
+}
