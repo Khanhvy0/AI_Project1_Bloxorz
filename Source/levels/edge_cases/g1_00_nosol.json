@@ -1,0 +1,10 @@
+{
+  "name": "g1_00_nosol",
+  "grid": [
+    "S.#",
+    "#.#",
+    "#.G"
+  ],
+  "bridges": {},
+  "switches": []
+}
