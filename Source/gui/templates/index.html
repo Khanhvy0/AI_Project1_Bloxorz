@@ -17,21 +17,36 @@
     <div id="stage">
       <h1 class="brand">BLOXORZ</h1>
       <div id="game-announcement" class="game-announcement" aria-live="assertive" hidden></div>
+      <section id="solve-prompt" class="solve-prompt" role="dialog" aria-modal="true"
+        aria-labelledby="solve-prompt-title" hidden>
+        <h2 id="solve-prompt-title">Solved!</h2>
+        <p>What would you like to do next?</p>
+        <div class="solve-prompt-actions">
+          <button id="btn-solve-next" class="solve-prompt-action">Continue</button>
+          <button id="btn-solve-replay" class="solve-prompt-action">Replay this level</button>
+        </div>
+      </section>
     </div>
     <aside>
       <label for="level-select">Level</label>
       <select id="level-select"></select>
+      <div class="board-zoom-controls" role="group" aria-label="Board size">
+        <span>Board size</span>
+        <button id="btn-board-smaller" type="button" aria-label="Zoom out">−</button>
+        <button id="btn-board-larger" type="button" aria-label="Zoom in">+</button>
+      </div>
       <div class="row">
         <button id="btn-new">New Game</button>
         <button id="btn-restart">Restart</button>
       </div>
 
       <h2>Solvers</h2>
+      <button id="btn-solve-stop" hidden>Stop solver</button>
       <div class="solvers">
         <button data-algo="bfs">BFS</button>
-        <button disabled title="Not implemented">DFS (IDS)</button>
-        <button disabled title="Not implemented">UCS</button>
-        <button disabled title="Not implemented">A* (not implemented)</button>
+        <button data-algo="dfs">DFS (IDS)</button>
+        <button data-algo="ucs">UCS</button>
+        <button data-algo="astar">A*</button>
       </div>
 
       <h2>Game</h2>
