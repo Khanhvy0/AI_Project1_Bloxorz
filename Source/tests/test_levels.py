@@ -8,8 +8,8 @@ from tests.helpers import bfs_path_length
 LEVEL_DIR = os.path.join(os.path.dirname(__file__), "..", "levels")
 FILES = sorted(glob.glob(os.path.join(LEVEL_DIR, "*.json")))
 
-# Đổi thành True khi _apply_switches (Tuần 2) đã làm xong
-SWITCH_LOGIC_READY = False
+# Split switches remain unsupported; the current levels use soft/heavy switches.
+SWITCH_LOGIC_READY = True
 
 
 def has_switches(level):

@@ -52,10 +52,31 @@ def _support_problem(level: Level, state: State) -> Optional[MoveStatus]:
     return None
 
 
-def _apply_switches(level: Level, state: State) -> State:
-    """TODO Tuần 2: soft / heavy / split switch, toggle / permanent.
-    Hiện chưa làm gì, trả về nguyên trạng thái."""
-    return state
+def _apply_switches(level: Level, previous: State, state: State) -> State:
+    bridges = state.bridges
+    previous_cells = set(previous.cells())
+    for switch in level.switches:
+        position = tuple(switch["pos"])
+        if position not in state.cells() or position in previous_cells:
+            continue
+        switch_type = switch["type"]
+        if switch_type == "heavy" and state.orient != Orient.STAND:
+            continue
+        if switch_type == "split":
+            raise NotImplementedError("Split switches are not implemented")
+
+        for bridge_id in switch["targets"]:
+            bit = 1 << level.bridge_ids.index(bridge_id)
+            mode = switch.get("mode", "toggle")
+            if mode == "toggle":
+                bridges ^= bit
+            elif mode == "open":
+                bridges |= bit
+            elif mode == "close":
+                bridges &= ~bit
+            else:
+                raise ValueError(f"Invalid switch mode: {mode!r}")
+    return replace(state, bridges=bridges)
 
 
 def apply_move(level: Level, state: State, direction: Direction) -> MoveResult:
@@ -67,7 +88,7 @@ def apply_move(level: Level, state: State, direction: Direction) -> MoveResult:
     problem = _support_problem(level, new)
     if problem is not None:
         return MoveResult(problem, None)
-    new = _apply_switches(level, new)
+    new = _apply_switches(level, state, new)
     return MoveResult(MoveStatus.WIN if is_goal(level, new) else MoveStatus.OK, new)
 
 

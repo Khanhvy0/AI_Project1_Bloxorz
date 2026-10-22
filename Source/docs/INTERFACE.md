@@ -107,4 +107,11 @@ Nếu `res.legal` là `False` thì GUI hiển thị thua và cho Restart. `FALL_
 
 ## 7. Chưa làm (Tuần 2)
 
-Kích hoạt soft/heavy/split switch (`_apply_switches` trong `engine.py`), toggle/permanent, tách và ghép khối.
+Split switch và trạng thái hai khối chưa làm.
+
+## 8. Tích hợp GUI
+
+GUI/API dùng `gui.engine_adapter`, chuyển dữ liệu JSON thành `Level` và `State`
+của `game` rồi gọi luật trong `game.engine`. Nút BFS cũng tìm đường qua
+`get_successors` của engine này. DFS, UCS và A* chưa được triển khai và bị
+vô hiệu hóa trong GUI.
