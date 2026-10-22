@@ -10,10 +10,11 @@ from .engine import (
     is_goal,
 )
 from .level import Level, LevelError, Tile, load_level
-from .state import Direction, Orient, State, TRANSITIONS
+from .state import Cell, Direction, Orient, State, TRANSITIONS
 
 __all__ = [
     "Direction",
+    "Cell",
     "Level",
     "LevelError",
     "MoveResult",
