@@ -16,12 +16,12 @@ class Loader(unittest.TestCase):
 
     def test_errors(self):
         bad = [
-            {"grid": ["S.", "G"]},                 # không chữ nhật
-            {"grid": ["S.."]},                     # thiếu G
-            {"grid": ["G.."]},                     # thiếu S
-            {"grid": ["SSG"]},                     # 2 ô S
-            {"grid": ["S?G"]},                     # ký tự lạ
-            {"grid": ["S=G"]},                     # '=' chưa thuộc cầu
+            {"grid": ["S.", "G"]}, # không chữ nhật
+            {"grid": ["S.."]}, # thiếu G
+            {"grid": ["G.."]}, # thiếu S
+            {"grid": ["SSG"]}, # 2 ô S
+            {"grid": ["S?G"]}, # ký tự lạ
+            {"grid": ["S=G"]},  # '=' chưa thuộc cầu
             {"grid": ["S.G"], "bridges": {"b": {"cells": [[0, 1]]}}},  # ô cầu không phải '='
             {"grid": ["SoG"], "switches": [{"pos": [0, 1], "type": "heavy"}]},  # sai loại
         ]
