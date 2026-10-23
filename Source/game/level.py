@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from .state import Cell
 
@@ -28,7 +28,15 @@ CHAR_TO_TILE = {"#": Tile.VOID, ".": Tile.FLOOR, "S": Tile.FLOOR, "G": Tile.GOAL
                 "F": Tile.FRAGILE, "=": Tile.BRIDGE, "o": Tile.SOFT,
                 "x": Tile.HEAVY, "s": Tile.SPLIT}
 SWITCH_TYPE_TO_TILE = {"soft": Tile.SOFT, "heavy": Tile.HEAVY, "split": Tile.SPLIT}
+MODES = ("toggle", "open", "close") 
 
+@dataclass(frozen=True)
+class SwitchInfo:
+    pos: Cell
+    kind: Tile # SOFT / HEAVY / SPLIT
+    mask: int = 0 # bitmask các cầu bị ảnh hưởng
+    mode: str = "toggle" # toggle | open | close
+    cubes: Optional[Tuple[Cell, Cell]] = None # chỉ dùng cho SPLIT
 
 @dataclass
 class Level:
@@ -39,7 +47,8 @@ class Level:
     bridge_ids: List[str] = field(default_factory=list)          # chỉ số bit = vị trí trong list
     cell_to_bridge: Dict[Cell, int] = field(default_factory=dict)  # ô cầu -> chỉ số bit
     initial_bridges: int = 0
-    switches: List[dict] = field(default_factory=list)           # Tuần 2 sẽ dùng
+    switches: List[dict] = field(default_factory=list)           # dữ liệu thô từ JSON
+    switch_at: Dict[Cell, SwitchInfo] = field(default_factory=dict)  # tra nhanh theo ô
 
     @property
     def rows(self) -> int:
@@ -54,6 +63,12 @@ class Level:
 
     def tile_at(self, cell: Cell) -> Tile:
         return self.tiles[cell[0]][cell[1]]
+
+    def is_bridge_open(self, state, r: int, c: int) -> bool:
+        """True nếu ô (r, c) là cầu và đang MỞ ứng với `state`.
+        Trả về False nếu ô đó không phải cầu hoặc cầu đang đóng."""
+        idx = self.cell_to_bridge.get((r, c))
+        return idx is not None and bool((state.bridges >> idx) & 1)
 
     @staticmethod
     def from_dict(d: dict) -> "Level":
@@ -101,20 +116,54 @@ class Level:
                 if t == Tile.BRIDGE and (r, c) not in level.cell_to_bridge:
                     raise LevelError(f"Ô '=' tại ({r},{c}) chưa thuộc cầu nào")
 
-        # Công tắc: kiểm tra vị trí khớp loại ô; logic kích hoạt làm ở Tuần 2
+        # Công tắc
         for sw in d.get("switches", []):
-            pos = (sw["pos"][0], sw["pos"][1])
-            stype = sw.get("type")
-            if stype not in SWITCH_TYPE_TO_TILE:
-                raise LevelError(f"Loại công tắc không hợp lệ: {stype!r}")
-            if not level.in_bounds(pos) or level.tile_at(pos) != SWITCH_TYPE_TO_TILE[stype]:
-                raise LevelError(f"Công tắc {stype} tại {pos} không khớp ký tự trong grid")
-            for t in sw.get("targets", []):
-                if t not in level.bridge_ids:
-                    raise LevelError(f"Công tắc tại {pos} trỏ tới cầu không tồn tại: {t}")
+            info = level._parse_switch(sw)
+            if info.pos in level.switch_at:
+                raise LevelError(f"Hai công tắc cùng ô {info.pos}")
             level.switches.append(sw)
+            level.switch_at[info.pos] = info
+        # mọi ô công tắc trong grid phải có khai báo
+        for r, row in enumerate(level.tiles):
+            for c, t in enumerate(row):
+                if t in (Tile.SOFT, Tile.HEAVY, Tile.SPLIT) and (r, c) not in level.switch_at:
+                    raise LevelError(f"Ô công tắc tại ({r},{c}) chưa được khai báo trong 'switches'")
         return level
 
+
+    def _parse_switch(self, sw: dict) -> SwitchInfo:
+        pos = (sw["pos"][0], sw["pos"][1])
+        stype = sw.get("type")
+        if stype not in SWITCH_TYPE_TO_TILE:
+            raise LevelError(f"Loại công tắc không hợp lệ: {stype!r}")
+        kind = SWITCH_TYPE_TO_TILE[stype]
+        if not self.in_bounds(pos) or self.tile_at(pos) != kind:
+            raise LevelError(f"Công tắc {stype} tại {pos} không khớp ký tự trong grid")
+
+        if kind == Tile.SPLIT:
+            cubes = sw.get("cubes")
+            if not cubes or len(cubes) != 2:
+                raise LevelError(f"Công tắc split tại {pos} cần 'cubes': [[r,c],[r,c]]")
+            a, b = (cubes[0][0], cubes[0][1]), (cubes[1][0], cubes[1][1])
+            for cell in (a, b):
+                if not self.in_bounds(cell) or self.tile_at(cell) == Tile.VOID:
+                    raise LevelError(f"Vị trí khối sau khi tách {cell} không nằm trên ô hợp lệ")
+            if abs(a[0] - b[0]) + abs(a[1] - b[1]) <= 1:
+                raise LevelError(f"Hai khối sau khi tách {a}, {b} không được trùng/kề nhau")
+            return SwitchInfo(pos, kind, 0, "toggle", (a, b))
+
+        mode = sw.get("mode", "toggle")
+        if mode not in MODES:
+            raise LevelError(f"mode không hợp lệ: {mode!r} (chọn {MODES})")
+        targets = sw.get("targets", [])
+        if not targets:
+            raise LevelError(f"Công tắc tại {pos} cần ít nhất một cầu trong 'targets'")
+        mask = 0
+        for t in targets:
+            if t not in self.bridge_ids:
+                raise LevelError(f"Công tắc tại {pos} trỏ tới cầu không tồn tại: {t}")
+            mask |= 1 << self.bridge_ids.index(t)
+        return SwitchInfo(pos, kind, mask, mode, None)
 
 def load_level(path: str) -> Level:
     with open(path, encoding="utf-8") as f:

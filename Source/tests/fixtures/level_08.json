@@ -1,0 +1,40 @@
+{
+  "name": "fx_toggle",
+  "grid": [
+    "S.o.=.G",
+    "...#=..",
+    "...#=.."
+  ],
+  "bridges": {
+    "b1": {
+      "cells": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "open": false
+    }
+  },
+  "switches": [
+    {
+      "pos": [
+        0,
+        2
+      ],
+      "type": "soft",
+      "targets": [
+        "b1"
+      ],
+      "mode": "toggle"
+    }
+  ]
+}

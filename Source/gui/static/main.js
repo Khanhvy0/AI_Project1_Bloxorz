@@ -4,108 +4,81 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ROLL_MS = 220, REPLAY_ROLL_MS = 160, REPLAY_GAP_MS = 100;
-const COLORS = { floor: 0x5b6b8c, fragile: 0xd9a441, goal: 0x07090d, bridge: 0x3fb5a8,
-  block: 0xc8553d, soft: 0xf2f2f2, heavy: 0xff6b81, split: 0x6ec1ff };
+const ROLL_MS = 220,
+  REPLAY_ROLL_MS = 160,
+  REPLAY_GAP_MS = 100;
+
+// Bảng màu Monument Valley / Pastel Zen
+const COLORS = {
+  floor: 0xf4eee4, // Đá cẩm thạch kem ấm
+  pillar: 0xdfd3c3, // Cột đá sa thạch bên dưới
+  fragile: 0xf2b880, // Cam đào pastel (Ô yếu)
+  bridge: 0x84b59f, // Xanh ngọc lá xô thơm (Cầu)
+  block: 0xe07a5f, // Cam đất nung Terracotta (Khối chính)
+  blockActive: 0xf4a261, // Vàng cam nắng ấm khi chọn khối phân tách
+  soft: 0x5c9ead, // Xanh lam gốm (Công tắc tròn)
+  heavy: 0xd66853, // Đỏ san hô trầm (Công tắc chữ X)
+  split: 0x9b8bb4, // Tím oải hương trầm (Công tắc phân tách)
+};
 let boardZoom = 1;
 
-function createBrickTexture() {
+// Tạo bề mặt đá/gốm mịn có viền vát nhẹ kiểu Monument Valley
+function createStoneTileTexture(baseHex, insetHex, accentHex) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 128;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, 128, 128);
-  ctx.strokeStyle = "rgba(12, 12, 16, 0.34)";
-  ctx.lineWidth = 3;
 
-  for (const y of [0, 32, 64, 96, 127]) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(128, y);
-    ctx.stroke();
-  }
-  for (const [x, y1, y2] of [[0, 0, 32], [64, 0, 32], [32, 32, 64], [96, 32, 64],
-    [0, 64, 96], [64, 64, 96], [32, 96, 127], [96, 96, 127], [127, 0, 32], [127, 64, 96]]) {
-    ctx.beginPath();
-    ctx.moveTo(x, y1);
-    ctx.lineTo(x, y2);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(8, 8, 10, 0.2)";
-  ctx.lineWidth = 1.5;
-  for (const [x, y] of [[13, 13], [84, 49], [48, 82], [111, 112]]) {
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + 4, y + 5);
-    ctx.lineTo(x + 2, y + 10);
-    ctx.lineTo(x + 7, y + 14);
-    ctx.stroke();
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function createIceTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext("2d");
-  const gradient = ctx.createLinearGradient(0, 0, 128, 128);
-  gradient.addColorStop(0, "#d9f8ff");
-  gradient.addColorStop(0.48, "#8ed8ed");
-  gradient.addColorStop(1, "#c6f3ff");
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = baseHex;
   ctx.fillRect(0, 0, 128, 128);
 
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  // Viền ngoài dịu nhẹ
+  ctx.strokeStyle = insetHex;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(3, 3, 122, 122);
+
+  // Họa tiết hình học tối giản bên trong ô
+  ctx.strokeStyle = accentHex;
   ctx.lineWidth = 2;
-  for (const points of [
-    [[12, 0], [31, 29], [24, 52], [42, 72]],
-    [[88, 0], [72, 24], [91, 43], [78, 67], [103, 91]],
-    [[0, 96], [22, 82], [39, 105], [34, 128]],
-    [[112, 128], [99, 111], [118, 91], [128, 78]],
-  ]) {
-    ctx.beginPath();
-    ctx.moveTo(...points[0]);
-    points.slice(1).forEach((point) => ctx.lineTo(...point));
-    ctx.stroke();
-  }
+  ctx.strokeRect(18, 18, 92, 92);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 
-const brickTexture = createBrickTexture();
-const iceTexture = createIceTexture();
-const iceTileGeometry = new RoundedBoxGeometry(0.96, 0.2, 0.96, 3, 0.07);
-const puddleShape = new THREE.Shape();
-puddleShape.moveTo(-0.42, -0.16);
-puddleShape.bezierCurveTo(-0.32, -0.28, -0.08, -0.23, 0.02, -0.28);
-puddleShape.bezierCurveTo(0.2, -0.35, 0.42, -0.23, 0.42, -0.08);
-puddleShape.bezierCurveTo(0.44, 0.08, 0.27, 0.18, 0.08, 0.17);
-puddleShape.bezierCurveTo(-0.12, 0.24, -0.38, 0.16, -0.42, -0.02);
-puddleShape.bezierCurveTo(-0.46, -0.08, -0.45, -0.12, -0.42, -0.16);
-const puddleGeometry = new THREE.ShapeGeometry(puddleShape, 12);
-const puddleMaterial = new THREE.MeshPhysicalMaterial({
-  color: 0x68cbe8,
-  roughness: 0.08,
-  metalness: 0.06,
-  clearcoat: 1,
-  clearcoatRoughness: 0.04,
-  transparent: true,
-  opacity: 0.78,
-});
-const dripGeometry = new THREE.SphereGeometry(0.035, 8, 6);
-const dripTracks = [];
-const persistentGeometries = new Set([iceTileGeometry, puddleGeometry, dripGeometry]);
-const persistentMaterials = new Set([puddleMaterial]);
+const stoneTexture = createStoneTileTexture(
+  "#f6f0e6",
+  "#e5dccb",
+  "rgba(180, 165, 145, 0.35)",
+);
+const fragileTexture = createStoneTileTexture(
+  "#f7c59f",
+  "#e8a574",
+  "rgba(210, 120, 70, 0.35)",
+);
+const bridgeTexture = createStoneTileTexture(
+  "#9ec5b2",
+  "#7da893",
+  "rgba(255, 255, 255, 0.45)",
+);
+
+const tileGeometry = new RoundedBoxGeometry(0.96, 0.22, 0.96, 4, 0.05);
+const pillarGeometry = new RoundedBoxGeometry(0.84, 0.68, 0.84, 3, 0.04);
+const persistentGeometries = new Set([tileGeometry, pillarGeometry]);
+const persistentMaterials = new Set();
 
 async function api(path, body, options = {}) {
-  const res = await fetch(path, body
-    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), ...options }
-    : options);
+  const res = await fetch(
+    path,
+    body
+      ? {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          ...options,
+        }
+      : options,
+  );
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json();
 }
@@ -113,31 +86,86 @@ async function api(path, body, options = {}) {
 /* ---------- scene ---------- */
 const stage = $("stage");
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2f4f4f);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Để canvas trong suốt nhằm hiển thị nền Gradient hoàng hôn Pastel từ CSS
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 stage.appendChild(renderer.domElement);
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.dampingFactor = 0.06;
 controls.maxPolarAngle = Math.PI / 2.05;
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-sun.position.set(6, 12, 8);
+
+// Hệ thống ánh sáng ấm áp kiểu Pastel Zen
+const hemiLight = new THREE.HemisphereLight(0xfffcf5, 0xd8c3a5, 1.25);
+hemiLight.position.set(0, 20, 0);
+scene.add(hemiLight);
+
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.35);
+sun.position.set(10, 18, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 60;
+const d = 16;
+sun.shadow.camera.left = -d;
+sun.shadow.camera.right = d;
+sun.shadow.camera.top = d;
+sun.shadow.camera.bottom = -d;
+sun.shadow.bias = -0.0005;
 scene.add(sun);
+
+const fillLight = new THREE.DirectionalLight(0xcde4e8, 0.55);
+fillLight.position.set(-10, 6, -10);
+scene.add(fillLight);
+
+// Hạt bụi nắng lơ lửng (Floating Sun Motes)
+const motesCount = 45;
+const motesPositions = new Float32Array(motesCount * 3);
+for (let i = 0; i < motesCount; i++) {
+  motesPositions[i * 3] = (Math.random() - 0.5) * 24;
+  motesPositions[i * 3 + 1] = (Math.random() - 0.3) * 10;
+  motesPositions[i * 3 + 2] = (Math.random() - 0.5) * 24;
+}
+const motesGeo = new THREE.BufferGeometry();
+motesGeo.setAttribute("position", new THREE.BufferAttribute(motesPositions, 3));
+const motesMat = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.12,
+  transparent: true,
+  opacity: 0.55,
+});
+const sunMotes = new THREE.Points(motesGeo, motesMat);
+scene.add(sunMotes);
+persistentGeometries.add(motesGeo);
+persistentMaterials.add(motesMat);
+
 const boardGroup = new THREE.Group();
 const blockGroup = new THREE.Group();
 scene.add(boardGroup, blockGroup);
+let goalGlowMats = [];
 
 function resize() {
-  const w = stage.clientWidth, h = stage.clientHeight;
+  const w = stage.clientWidth,
+    h = stage.clientHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
+
 (function loop(now = 0) {
-  updateDrips(now);
+  sunMotes.rotation.y = now * 0.00005;
+  sunMotes.position.y = Math.sin(now * 0.0008) * 0.25;
+  const glint =
+    0.35 + 0.2 * Math.sin(now * 0.003) + 0.05 * Math.sin(now * 0.011);
+  for (const m of goalGlowMats) m.emissiveIntensity = glint;
   controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
@@ -150,20 +178,44 @@ function addSwitch(sw) {
   const [r, c] = sw.pos;
   const g = new THREE.Group();
   g.userData.isSwitch = true;
-  g.position.set(c, 0.03, r);
-  const mat = (color) => new THREE.MeshStandardMaterial({ color });
-  if (sw.type === "soft") {                       // 1 đĩa tròn
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 24), mat(COLORS.soft)));
-  } else if (sw.type === "heavy") {               // chữ X
+  g.position.set(c, 0.025, r);
+  const mat = (color) =>
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.4,
+      metalness: 0.05,
+    });
+  if (sw.type === "soft") {
+    // 1 đĩa tròn
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.3, 0.06, 28),
+      mat(COLORS.soft),
+    );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    g.add(mesh);
+  } else if (sw.type === "heavy") {
+    // chữ X
     for (const a of [Math.PI / 4, -Math.PI / 4]) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.14), mat(COLORS.heavy));
+      const bar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.72, 0.06, 0.15),
+        mat(COLORS.heavy),
+      );
       bar.rotation.y = a;
+      bar.castShadow = true;
+      bar.receiveShadow = true;
       g.add(bar);
     }
-  } else {                                        // split: 2 đĩa nhỏ "( )"
-    for (const dx of [-0.22, 0.22]) {
-      const d = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 20), mat(COLORS.split));
+  } else {
+    // split: 2 đĩa nhỏ "( )"
+    for (const dx of [-0.21, 0.21]) {
+      const d = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.13, 0.06, 20),
+        mat(COLORS.split),
+      );
       d.position.x = dx;
+      d.castShadow = true;
+      d.receiveShadow = true;
       g.add(d);
     }
   }
@@ -171,12 +223,115 @@ function addSwitch(sw) {
 }
 
 function addGoalHole(r, c) {
-  const well = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.34, 0.4, 0.34, 32),
-    new THREE.MeshStandardMaterial({ color: 0x030407, roughness: 1 })
+  // Kích thước lấy theo ô thường để đồng bộ:
+  //   ô: tileGeometry 0.96 x 0.22 x 0.96 (tâm y = -0.11), chân cột: pillarGeometry 0.84 x 0.68 x 0.84 (tâm y = -0.55)
+  const TILE = 0.96,
+    TILE_H = 0.22,
+    TILE_Y = -0.11;
+  const PILLAR = 0.84,
+    PILLAR_H = 0.68,
+    PILLAR_Y = -0.55;
+  const HOLE = 0.87; // cạnh miệng hố
+  const RIM = (TILE - HOLE) / 2; // bề rộng khung đá quanh miệng hố (0.15)
+  const EDGE = HOLE / 2 + RIM / 2; // khoảng cách từ tâm ô tới tâm thanh khung
+  const WALL = (PILLAR - HOLE) / 2; // độ dày thành chân cột rỗng (0.09)
+  const WEDGE = HOLE / 2 + WALL / 2;
+  const DEPTH = 0.88; // độ sâu hố = tới đáy chân cột
+  const OVERLAP = 0.03; // thanh bên chồng nhẹ vào thanh trên/dưới để không lộ khe ở góc
+
+  const goalGroup = new THREE.Group();
+  goalGroup.position.set(c, 0, r);
+
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: 0xf6f0e6, // cùng màu nền với stoneTexture của ô thường
+    roughness: 0.65,
+    metalness: 0.02,
+  });
+  const pillarMat = new THREE.MeshStandardMaterial({
+    color: COLORS.pillar,
+    roughness: 0.85,
+    metalness: 0.02,
+  });
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: 0xe09f3e,
+    emissive: 0xe09f3e,
+    emissiveIntensity: 0.35, // hơi phát sáng để nổi bật
+    roughness: 0.3,
+    metalness: 0.3,
+  });
+  goalGlowMats.push(goldMat);
+
+  const rbox = (w, h, d, radius = 0.04) =>
+    new RoundedBoxGeometry(w, h, d, 4, radius);
+  const place = (geo, mat, x, y, z, shadow = true) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = shadow;
+    mesh.receiveShadow = true;
+    goalGroup.add(mesh);
+    return mesh;
+  };
+
+  // 1. Khung đá: ngoài cùng 0.96 x 0.96 x 0.22, đúng kích thước ô thường
+  const barNS = rbox(TILE, TILE_H, RIM, 0.05);
+  const barEW = rbox(RIM, TILE_H, HOLE + 2 * OVERLAP, 0.03);
+  place(barNS, stoneMat, 0, TILE_Y, -EDGE);
+  place(barNS, stoneMat, 0, TILE_Y, EDGE);
+  place(barEW, stoneMat, -EDGE, TILE_Y, 0);
+  place(barEW, stoneMat, EDGE, TILE_Y, 0);
+
+  // 2. Chân cột rỗng: ngoài 0.84 x 0.68 x 0.84 như chân cột ô thường, bên trong chừa giếng
+  const wallNS = rbox(PILLAR, PILLAR_H, WALL, 0.02);
+  const wallEW = rbox(WALL, PILLAR_H, HOLE, 0.02);
+  place(wallNS, pillarMat, 0, PILLAR_Y, -WEDGE);
+  place(wallNS, pillarMat, 0, PILLAR_Y, WEDGE);
+  place(wallEW, pillarMat, -WEDGE, PILLAR_Y, 0);
+  place(wallEW, pillarMat, WEDGE, PILLAR_Y, 0);
+
+  // 3. Lòng hố: hộp nhìn từ bên trong, tô gradient từ nâu xám (miệng) xuống gần đen (đáy) tạo cảm giác sâu
+  const shaftGeo = new THREE.BoxGeometry(HOLE - 0.005, DEPTH, HOLE - 0.005);
+  const pos = shaftGeo.attributes.position;
+  const topColor = new THREE.Color(0x7d6c5a),
+    bottomColor = new THREE.Color(0x1d1612),
+    tmp = new THREE.Color();
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = (DEPTH / 2 - pos.getY(i)) / DEPTH; // 0 ở miệng, 1 ở đáy
+    tmp.copy(topColor).lerp(bottomColor, t);
+    colors.set([tmp.r, tmp.g, tmp.b], i * 3);
+  }
+  shaftGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const shaft = new THREE.Mesh(
+    shaftGeo,
+    new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }),
   );
-  well.position.set(c, -0.34, r);
-  boardGroup.add(well);
+  shaft.position.y = -DEPTH / 2;
+  goalGroup.add(shaft);
+
+  // 4. Viền vàng đồng nằm sát miệng hố (đặc điểm nhận biết chính của ô đích)
+  const RIM_GOLD = 0.045,
+    RIM_Y = -0.026, // dày 0.06: nhô lên 0.004 trên mặt ô, chìm xuống phủ kín phần mép khung bo tròn
+    RIM_H = 0.06,
+    RIM_EDGE = HOLE / 2 + RIM_GOLD / 2;
+  const goldNS = new THREE.BoxGeometry(HOLE + 2 * RIM_GOLD, RIM_H, RIM_GOLD);
+  const goldEW = new THREE.BoxGeometry(RIM_GOLD, RIM_H, HOLE);
+  place(goldNS, goldMat, 0, RIM_Y, -RIM_EDGE, false);
+  place(goldNS, goldMat, 0, RIM_Y, RIM_EDGE, false);
+  place(goldEW, goldMat, -RIM_EDGE, RIM_Y, 0, false);
+  place(goldEW, goldMat, RIM_EDGE, RIM_Y, 0, false);
+
+  // 5. Ốp vàng liền một dải từ miệng hố xuống LINER_H, lấp kín vùng giữa hai viền
+  const LINER_H = 0.12, // độ sâu lớp ốp vàng, tăng lên nếu muốn vàng sâu hơn
+    LINER_Y = -LINER_H / 2,
+    LINER_OFF = HOLE / 2 - 0.008;
+  const linerNS = new THREE.BoxGeometry(HOLE - 0.02, LINER_H, 0.01);
+  const linerEW = new THREE.BoxGeometry(0.01, LINER_H, HOLE - 0.01);
+  place(linerNS, goldMat, 0, LINER_Y, -LINER_OFF, false);
+  place(linerNS, goldMat, 0, LINER_Y, LINER_OFF, false);
+  place(linerEW, goldMat, -LINER_OFF, LINER_Y, 0, false);
+  place(linerEW, goldMat, LINER_OFF, LINER_Y, 0, false);
+
+  boardGroup.add(goalGroup);
 }
 
 function clearGroup(group) {
@@ -185,7 +340,9 @@ function clearGroup(group) {
   group.traverse((object) => {
     if (object.geometry) geometries.add(object.geometry);
     if (object.material) {
-      for (const material of Array.isArray(object.material) ? object.material : [object.material])
+      for (const material of Array.isArray(object.material)
+        ? object.material
+        : [object.material])
         materials.add(material);
     }
   });
@@ -198,171 +355,133 @@ function clearGroup(group) {
   group.clear();
 }
 
-function updateDrips(now) {
-  dripTracks.forEach((drip) => {
-    const progress = ((now / drip.duration + drip.phase) % 1);
-    drip.mesh.position.y = drip.startY - progress * 0.48;
-    const fade = Math.sin(progress * Math.PI);
-    drip.mesh.material.opacity = fade * 0.82;
-    drip.mesh.visible = progress > 0.04 && progress < 0.9;
-  });
-}
-
 function buildBoard(level) {
   clearGroup(boardGroup);
+  goalGlowMats = [];
   bridgeTiles = {};
-  dripTracks.length = 0;
-  const rows = level.grid.length, cols = level.grid[0].length;
+  const rows = level.grid.length,
+    cols = level.grid[0].length;
   const bridgeOf = {};
   for (const [id, b] of Object.entries(level.bridges || {}))
     for (const [r, c] of b.cells) bridgeOf[`${r},${c}`] = id;
 
-  const iceMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xb6edfa,
-    map: iceTexture,
-    roughness: 0.2,
-    metalness: 0.04,
-    clearcoat: 0.85,
-    clearcoatRoughness: 0.16,
-    emissive: 0x164b5b,
-    emissiveIntensity: 0.16,
-  });
-  const icicleMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xb9f1ff,
-    roughness: 0.14,
+  const floorMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: stoneTexture,
+    roughness: 0.65,
     metalness: 0.02,
-    clearcoat: 1,
-    clearcoatRoughness: 0.1,
-    transparent: true,
-    opacity: 0.88,
-    emissive: 0x1a6275,
-    emissiveIntensity: 0.2,
   });
-  const dripMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xb9f5ff,
-    roughness: 0.04,
-    clearcoat: 1,
-    transparent: true,
-    opacity: 0,
+
+  const fragileMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: fragileTexture,
+    roughness: 0.55,
+    metalness: 0.04,
   });
-  const hasBoardCell = (r, c) =>
-    r >= 0 && r < rows && c >= 0 && c < cols &&
-    level.grid[r][c] !== "." && level.grid[r][c] !== " ";
 
-  level.grid.forEach((line, r) => [...line].forEach((ch, c) => {
-    if (ch === "." || ch === " ") return;
-    if (ch === "g") {
-      addGoalHole(r, c);
-      return;
-    }
-    if (ch === "o") {
-      const tile = new THREE.Mesh(iceTileGeometry, iceMaterial);
-      tile.position.set(c, -0.1, r);
-      boardGroup.add(tile);
+  const pillarMaterial = new THREE.MeshStandardMaterial({
+    color: COLORS.pillar,
+    roughness: 0.85,
+    metalness: 0.02,
+  });
 
-      if ((r * 7 + c * 11) % 4 !== 0) {
-        const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
-        puddle.rotation.x = -Math.PI / 2;
-        puddle.position.set(c + ((r + c) % 2 ? 0.12 : -0.1), 0.006, r);
-        puddle.scale.set(
-          0.62 + ((r + c) % 3) * 0.12,
-          0.62 + ((r * 2 + c) % 3) * 0.1,
-          1
-        );
-        boardGroup.add(puddle);
+  level.grid.forEach((line, r) =>
+    [...line].forEach((ch, c) => {
+      if (ch === "." || ch === " ") return;
+      if (ch === "g") {
+        addGoalHole(r, c);
+        return;
       }
 
-      const exposedEdges = [
-        { open: !hasBoardCell(r - 1, c), x: c, z: r - 0.47, dx: 0, dz: -1 },
-        { open: !hasBoardCell(r + 1, c), x: c, z: r + 0.47, dx: 0, dz: 1 },
-        { open: !hasBoardCell(r, c - 1), x: c - 0.47, z: r, dx: -1, dz: 0 },
-        { open: !hasBoardCell(r, c + 1), x: c + 0.47, z: r, dx: 1, dz: 0 },
-      ];
-      exposedEdges.forEach((edge, side) => {
-        if (!edge.open) return;
-        const seed = (r * 17 + c * 31 + side * 13) % 5;
-        const height = 0.28 + seed * 0.075;
-        const alongEdge = (seed % 2 ? 0.2 : -0.2);
-        const icicle = new THREE.Mesh(
-          new THREE.ConeGeometry(0.07 + (seed % 3) * 0.018, height, 7),
-          icicleMaterial
-        );
-        icicle.rotation.z = Math.PI;
-        icicle.position.set(
-          edge.x + edge.dx * alongEdge,
-          -0.2 - height / 2,
-          edge.z + edge.dz * alongEdge
-        );
-        boardGroup.add(icicle);
-
-        const drip = new THREE.Mesh(dripGeometry, dripMaterial.clone());
-        drip.position.set(
-          edge.x + edge.dx * alongEdge,
-          -0.2 - height,
-          edge.z + edge.dz * alongEdge
-        );
-        drip.visible = false;
-        boardGroup.add(drip);
-        dripTracks.push({
-          mesh: drip,
-          startY: drip.position.y,
-          phase: ((r * 17 + c * 31 + side * 13) % 100) / 100,
-          duration: 1100 + seed * 180,
+      let mat;
+      if (ch === "o") {
+        mat = floorMaterial;
+      } else if (ch === "f") {
+        mat = fragileMaterial;
+      } else if (ch === "b") {
+        mat = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: bridgeTexture,
+          transparent: true,
+          roughness: 0.5,
         });
-      });
-      return;
-    }
-    const color = { o: COLORS.floor, f: COLORS.fragile, g: COLORS.goal, b: COLORS.bridge }[ch] ?? COLORS.floor;
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      map: brickTexture,
-      transparent: ch === "b",
-      roughness: 0.9,
-    });
-    const tile = new THREE.Mesh(iceTileGeometry, mat);
-    tile.position.set(c, -0.1, r);
-    boardGroup.add(tile);
-    if (ch === "b") (bridgeTiles[bridgeOf[`${r},${c}`]] ||= []).push(tile);
-  }));
+      } else {
+        mat = floorMaterial;
+      }
+
+      const tile = new THREE.Mesh(tileGeometry, mat);
+      tile.position.set(c, -0.11, r);
+      tile.receiveShadow = true;
+      tile.castShadow = true;
+      boardGroup.add(tile);
+
+      // Chân cột kiến trúc bên dưới các ô đá cố định tạo vẻ đẹp Monument Valley
+      if (ch === "o") {
+        const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+        pillar.position.set(c, -0.55, r);
+        pillar.receiveShadow = true;
+        boardGroup.add(pillar);
+      }
+
+      if (ch === "b") (bridgeTiles[bridgeOf[`${r},${c}`]] ||= []).push(tile);
+    }),
+  );
+
   (level.switches || []).forEach(addSwitch);
 
-  const cx = (cols - 1) / 2, cz = (rows - 1) / 2;
+  const cx = (cols - 1) / 2,
+    cz = (rows - 1) / 2;
   controls.target.set(cx, 0, cz);
+  sunMotes.position.set(cx, 0, cz);
+
   const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
-  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
+  const horizontalHalfFov = Math.atan(
+    Math.tan(verticalHalfFov) * camera.aspect,
+  );
   const halfFov = Math.min(verticalHalfFov, horizontalHalfFov);
   const boardRadius = Math.hypot(cols / 2, rows / 2, 1);
-  const distance = boardRadius / Math.sin(halfFov) * 1.15;
+  const distance = (boardRadius / Math.sin(halfFov)) * 1.15;
   const target = controls.target;
   camera.position.set(
-    target.x + distance * 0.37 / boardZoom,
-    target.y + distance * 0.65 / boardZoom,
-    target.z + distance * 0.65 / boardZoom
+    target.x + (distance * 0.37) / boardZoom,
+    target.y + (distance * 0.65) / boardZoom,
+    target.z + (distance * 0.65) / boardZoom,
   );
   controls.update();
 }
 
 function adjustBoardZoom(change) {
   const previousZoom = boardZoom;
-  boardZoom = Math.min(2, Math.max(0.5, Math.round((boardZoom + change) * 10) / 10));
+  boardZoom = Math.min(
+    2,
+    Math.max(0.5, Math.round((boardZoom + change) * 10) / 10),
+  );
   if (boardZoom === previousZoom) return;
   const offset = camera.position.clone().sub(controls.target);
-  camera.position.copy(controls.target).addScaledVector(offset, previousZoom / boardZoom);
+  camera.position
+    .copy(controls.target)
+    .addScaledVector(offset, previousZoom / boardZoom);
   controls.update();
 }
 
 function setBridges(bridges) {
   for (const [id, tiles] of Object.entries(bridgeTiles))
-    tiles.forEach((t) => { t.material.opacity = bridges[id] ? 1 : 0.12; });
+    tiles.forEach((t) => {
+      t.material.opacity = bridges[id] ? 1 : 0.18;
+    });
 }
 
 /* ---------- block ---------- */
 let blockMeshes = [];
 
 function blockBox(cells, multi) {
-  const rs = cells.map((c) => c[0]), cs = cells.map((c) => c[1]);
-  const r0 = Math.min(...rs), r1 = Math.max(...rs), c0 = Math.min(...cs), c1 = Math.max(...cs);
-  const h = cells.length === 1 && !multi ? 2 : 1;   // đứng cao 2; nằm hoặc khối lập phương cao 1
+  const rs = cells.map((c) => c[0]),
+    cs = cells.map((c) => c[1]);
+  const r0 = Math.min(...rs),
+    r1 = Math.max(...rs),
+    c0 = Math.min(...cs),
+    c1 = Math.max(...cs);
+  const h = cells.length === 1 && !multi ? 2 : 1; // đứng cao 2; nằm hoặc khối lập phương cao 1
   return { r0, r1, c0, c1, h, w: c1 - c0 + 1, d: r1 - r0 + 1 };
 }
 
@@ -372,11 +491,29 @@ function renderState() {
   const multi = state.blocks.length > 1;
   state.blocks.forEach((cells, i) => {
     const b = blockBox(cells, multi);
-    const mat = new THREE.MeshStandardMaterial({ color: COLORS.block, map: brickTexture, roughness: 0.88 });
-    if (multi && i === state.active) { mat.emissive = new THREE.Color(0xffd166); mat.emissiveIntensity = 0.35; }
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.96, b.h * 0.98, b.d * 0.96), mat);
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),
-      new THREE.LineBasicMaterial({ color: 0x1a1210 })));
+    const isActive = multi && i === state.active;
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: isActive ? COLORS.blockActive : COLORS.block,
+      roughness: 0.38,
+      metalness: 0.04,
+      clearcoat: 0.25,
+      clearcoatRoughness: 0.4,
+    });
+    if (isActive) {
+      mat.emissive = new THREE.Color(0xf4a261);
+      mat.emissiveIntensity = 0.22;
+    }
+
+    const geom = new RoundedBoxGeometry(
+      b.w * 0.95,
+      b.h * 0.98,
+      b.d * 0.95,
+      5,
+      0.07,
+    );
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     mesh.position.set((b.c0 + b.c1) / 2, b.h / 2, (b.r0 + b.r1) / 2);
     blockGroup.add(mesh);
     blockMeshes.push(mesh);
@@ -389,12 +526,13 @@ function renderState() {
 function rollBlock(idx, dir, ms) {
   const mesh = blockMeshes[idx];
   const b = blockBox(state.blocks[idx], state.blocks.length > 1);
-  const xc = (b.c0 + b.c1) / 2, zc = (b.r0 + b.r1) / 2;
+  const xc = (b.c0 + b.c1) / 2,
+    zc = (b.r0 + b.r1) / 2;
   const cfg = {
     right: { p: [b.c1 + 0.5, 0, zc], axis: "z", a: -Math.PI / 2 },
-    left:  { p: [b.c0 - 0.5, 0, zc], axis: "z", a:  Math.PI / 2 },
-    down:  { p: [xc, 0, b.r1 + 0.5], axis: "x", a:  Math.PI / 2 },
-    up:    { p: [xc, 0, b.r0 - 0.5], axis: "x", a: -Math.PI / 2 },
+    left: { p: [b.c0 - 0.5, 0, zc], axis: "z", a: Math.PI / 2 },
+    down: { p: [xc, 0, b.r1 + 0.5], axis: "x", a: Math.PI / 2 },
+    up: { p: [xc, 0, b.r0 - 0.5], axis: "x", a: -Math.PI / 2 },
   }[dir];
   const pivot = new THREE.Group();
   pivot.position.set(...cfg.p);
@@ -434,7 +572,11 @@ function dropBlock(idx, dir, ms = 620) {
     if (!part.isMesh) return;
     const list = Array.isArray(part.material) ? part.material : [part.material];
     for (const material of list) {
-      materials.push({ material, transparent: material.transparent, opacity: material.opacity });
+      materials.push({
+        material,
+        transparent: material.transparent,
+        opacity: material.opacity,
+      });
       material.transparent = true;
     }
   });
@@ -448,10 +590,14 @@ function dropBlock(idx, dir, ms = 620) {
       mesh.rotation.set(
         initialRotation.x + tilt[0] * k,
         initialRotation.y + tilt[1] * k,
-        initialRotation.z + tilt[2] * k
+        initialRotation.z + tilt[2] * k,
       );
       const scale = 1 - fall * 0.88;
-      mesh.scale.set(initialScale.x * scale, initialScale.y * scale, initialScale.z * scale);
+      mesh.scale.set(
+        initialScale.x * scale,
+        initialScale.y * scale,
+        initialScale.z * scale,
+      );
       for (const { material } of materials) material.opacity = 1 - fall;
       if (k < 1) requestAnimationFrame(step);
       else resolve();
@@ -469,7 +615,9 @@ function crumbleBoard(ms = 850) {
     const materials = [];
     object.traverse((part) => {
       if (!part.isMesh) return;
-      const list = Array.isArray(part.material) ? part.material : [part.material];
+      const list = Array.isArray(part.material)
+        ? part.material
+        : [part.material];
       for (const material of list) {
         materials.push({ material, opacity: material.opacity });
         material.transparent = true;
@@ -496,15 +644,19 @@ function crumbleBoard(ms = 850) {
         piece.object.position.set(
           piece.position.x + Math.cos(piece.angle) * fall * 1.1,
           piece.position.y - fall * 2.4,
-          piece.position.z + Math.sin(piece.angle) * fall * 1.1
+          piece.position.z + Math.sin(piece.angle) * fall * 1.1,
         );
         piece.object.rotation.set(
           piece.rotation.x + Math.sin(piece.angle) * fall * 0.8,
           piece.rotation.y + fall * 0.35,
-          piece.rotation.z + Math.cos(piece.angle) * fall * 0.8
+          piece.rotation.z + Math.cos(piece.angle) * fall * 0.8,
         );
         const scale = 1 - fall * 0.45;
-        piece.object.scale.set(piece.scale.x * scale, piece.scale.y * scale, piece.scale.z * scale);
+        piece.object.scale.set(
+          piece.scale.x * scale,
+          piece.scale.y * scale,
+          piece.scale.z * scale,
+        );
         for (const { material, opacity } of piece.materials)
           material.opacity = opacity * (1 - fall);
         if (k < 1) complete = false;
@@ -516,21 +668,34 @@ function crumbleBoard(ms = 850) {
 }
 
 /* ---------- game flow ---------- */
-let level = null, state = null, levels = [], busy = false, replaying = false, moves = 0;
+let level = null,
+  state = null,
+  levels = [],
+  busy = false,
+  replaying = false,
+  moves = 0;
 let metricsVisible = false;
-let solveAbortController = null, activeSolveId = null, stopRequested = false;
+let solveAbortController = null,
+  activeSolveId = null,
+  stopRequested = false;
 
 function updateHud() {
   const el = $("hud-status");
   el.className = state.status;
-  el.textContent = state.status === "playing" ? "Playing" : "";
+  el.textContent =
+    state.status === "playing" ? "Playing" : state.status.toUpperCase();
   $("hud-moves").textContent = `Moves: ${moves}`;
 }
-const setMsg = (t) => { $("msg").textContent = t; };
-const setDisabled = (v) => document.querySelectorAll(
-  "button:not(.solve-prompt-action):not(#btn-solve-stop)"
-)
-  .forEach((b) => { b.disabled = v; });
+const setMsg = (t) => {
+  $("msg").textContent =
+    t || "Select a solver or use keyboard to guide the block.";
+};
+const setDisabled = (v) =>
+  document
+    .querySelectorAll("button:not(.solve-prompt-action):not(#btn-solve-stop)")
+    .forEach((b) => {
+      b.disabled = v;
+    });
 
 function askAfterSolve() {
   const prompt = $("solve-prompt");
@@ -553,7 +718,8 @@ function askAfterSolve() {
 async function announceResult(status) {
   const announcement = $("game-announcement");
   announcement.className = `game-announcement ${status}`;
-  announcement.textContent = status === "won" ? "YOU WIN!" : "YOU FELL!";
+  announcement.textContent =
+    status === "won" ? "Harmony Achieved!" : "Monument Crumbled";
   announcement.hidden = false;
   await sleep(2000);
   announcement.hidden = true;
@@ -574,7 +740,7 @@ async function loadLevel(id, { showMetrics = false } = {}) {
 async function advanceLevel() {
   const index = levels.findIndex((item) => item.id === level.id);
   if (index < 0 || index + 1 >= levels.length) {
-    setMsg("All levels completed!");
+    setMsg("All chapters completed!");
     return;
   }
   const nextLevel = levels[index + 1];
@@ -586,7 +752,11 @@ async function act(action, ms = ROLL_MS) {
   if (busy || state.status !== "playing") return;
   busy = true;
   try {
-    const { state: next } = await api("/api/move", { level_id: level.id, state, action });
+    const { state: next } = await api("/api/move", {
+      level_id: level.id,
+      state,
+      action,
+    });
     if (action !== "swap") await rollBlock(state.active, action, ms);
     state = next;
     moves += 1;
@@ -608,16 +778,19 @@ async function act(action, ms = ROLL_MS) {
     } else if (state.status === "won" && !replaying) {
       await advanceLevel();
     }
-  } finally { busy = false; }
+  } finally {
+    busy = false;
+  }
 }
 
 function showStats(s) {
   if (s) metricsVisible = true;
   $("metrics-panel").hidden = !metricsVisible;
   $("st-time").textContent = s ? `${s.search_time_ms} ms` : "-";
-  $("st-nodes").textContent = s ? s.expanded_nodes : "-";
+  $("st-nodes").textContent = s ? s.expanded_nodes.toLocaleString() : "-";
   $("st-mem").textContent = s ? `${s.peak_memory_kb} KB` : "-";
-  $("st-len").textContent = s && s.solution_length != null ? s.solution_length : "-";
+  $("st-len").textContent =
+    s && s.solution_length != null ? `${s.solution_length} moves` : "-";
 }
 
 async function solve(algo, label) {
@@ -631,16 +804,23 @@ async function solve(algo, label) {
   setDisabled(true);
   try {
     await loadLevel(level.id, { showMetrics: true });
-    setMsg(`Solving with ${label}...`);
-    const res = await api("/api/solve", {
-      level_id: level.id,
-      algo,
-      solve_id: activeSolveId,
-    }, { signal: solveAbortController.signal });
+    setMsg(`Contemplating path with ${label}...`);
+    const res = await api(
+      "/api/solve",
+      {
+        level_id: level.id,
+        algo,
+        solve_id: activeSolveId,
+      },
+      { signal: solveAbortController.signal },
+    );
     activeSolveId = null;
     showStats(res.stats);
-    if (!res.path) { setMsg("No solution found."); return; }
-    setMsg(`Solved in ${res.path.length} moves. Replaying...`);
+    if (!res.path) {
+      setMsg("No solution found for this monument.");
+      return;
+    }
+    setMsg(`Solved in ${res.path.length} moves. Guiding block...`);
     for (const a of res.path) {
       if (stopRequested) break;
       await act(a, REPLAY_ROLL_MS);
@@ -693,8 +873,21 @@ async function stopSolver() {
 }
 
 /* ---------- UI wiring ---------- */
-const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
-  w: "up", s: "down", a: "left", d: "right", W: "up", S: "down", A: "left", D: "right", " ": "swap" };
+const KEYS = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  w: "up",
+  s: "down",
+  a: "left",
+  d: "right",
+  W: "up",
+  S: "down",
+  A: "left",
+  D: "right",
+  " ": "swap",
+};
 window.addEventListener("keydown", (e) => {
   const action = KEYS[e.key];
   if (!action || replaying || e.target.tagName === "SELECT") return;
@@ -703,8 +896,15 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.querySelectorAll(".solvers button").forEach((b) =>
-  b.addEventListener("click", () => solve(b.dataset.algo, b.textContent)));
-$("btn-restart").addEventListener("click", () => !replaying && loadLevel(level.id));
+  b.addEventListener("click", () => {
+    const title = b.querySelector(".algo-title")?.textContent || b.textContent;
+    solve(b.dataset.algo, title);
+  }),
+);
+$("btn-restart").addEventListener(
+  "click",
+  () => !replaying && loadLevel(level.id),
+);
 $("btn-solve-stop").addEventListener("click", stopSolver);
 $("btn-board-smaller").addEventListener("click", () => adjustBoardZoom(-0.1));
 $("btn-board-larger").addEventListener("click", () => adjustBoardZoom(0.1));
@@ -714,11 +914,16 @@ $("btn-new").addEventListener("click", () => {
   sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
   loadLevel(sel.value);
 });
-$("level-select").addEventListener("change", (e) => !replaying && loadLevel(e.target.value));
+$("level-select").addEventListener(
+  "change",
+  (e) => !replaying && loadLevel(e.target.value),
+);
 
 (async function init() {
   resize();
   levels = await api("/api/levels");
-  $("level-select").innerHTML = levels.map((l) => `<option value="${l.id}">${l.name}</option>`).join("");
+  $("level-select").innerHTML = levels
+    .map((l) => `<option value="${l.id}">${l.name}</option>`)
+    .join("");
   await loadLevel(levels[0].id);
 })();

@@ -20,7 +20,7 @@ python -m unittest discover -s tests -t . -v
 ## Level và bộ giải
 
 Danh sách level trong game được đánh số liên tục từ `level_01` đến `level_20`,
-theo độ khó tăng dần. GUI hỗ trợ BFS, DFS (IDS), UCS và A* để tìm đường,
+theo độ khó tăng dần. GUI hỗ trợ BFS, DFS (IDS), UCS và A\* để tìm đường,
 xem chỉ số tìm kiếm và phát lại lời giải. Sau khi solver giải xong, chọn chơi
 level tiếp theo hoặc chơi lại level hiện tại.
 
@@ -34,6 +34,7 @@ docs/      INTERFACE.md (đặc tả cho cả nhóm)
 ```
 
 ## Cách chạy
+
 ```bash
 # Tạo môi trường ảo( .venv) để cô lập chương trình
 python -m venv .venv
@@ -43,7 +44,7 @@ source .venv/bin/activate
 # Windows
 .venv\Scripts\activate
 
-# Chạy riêng một file test
+# Chạy riêng một file test: python -m unittest tests.[tên_file_test] -v
 python -m unittest tests.test_transitions -v
 python -m unittest tests.test_levels -v
 
