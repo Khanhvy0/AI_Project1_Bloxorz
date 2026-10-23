@@ -8,7 +8,6 @@ from tests.helpers import bfs_path_length
 LEVEL_DIR = os.path.join(os.path.dirname(__file__), "..", "levels")
 FILES = sorted(glob.glob(os.path.join(LEVEL_DIR, "*.json")))
 
-# Split switches remain unsupported; the current levels use soft/heavy switches.
 SWITCH_LOGIC_READY = True
 
 
@@ -44,8 +43,8 @@ class LevelFiles(unittest.TestCase):
             with self.subTest(level=os.path.basename(f)):
                 self.assertIsNotNone(bfs_path_length(lv))
 
-    @unittest.skipUnless(SWITCH_LOGIC_READY, "chờ logic công tắc (Tuần 2)")
     def test_solvable_with_switches(self):
+        """Màn có công tắc (nhóm 3, 4) cũng phải giải được."""
         for f in FILES:
             lv = load_level(f)
             if not has_switches(lv):

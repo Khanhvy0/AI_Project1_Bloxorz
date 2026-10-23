@@ -22,6 +22,10 @@ CLASSES = (BFSSovler, DFSSovler, UCSovler, AStarSovler, IDSSovler)
 LEVELS = Path(__file__).resolve().parents[1] / "levels"
 
 
+def numbered_levels(first, last):
+    return [LEVELS / f"level_{number:02}.json" for number in range(first, last + 1)]
+
+
 class CommonSolverTests(unittest.TestCase):
     def graphs(self, grid):
         data = {"name": "integration", "grid": grid}
@@ -143,7 +147,7 @@ class CommonSolverTests(unittest.TestCase):
         self.assertLessEqual(l1_heuristic(lying, graph.goal_pos), 1.0)
 
     def test_basic_and_fragile_levels_across_backends(self):
-        for file in sorted(LEVELS.glob("g[12]_*.json")):
+        for file in numbered_levels(1, 7):
             lengths = []
             for graph in (MazeGraph.from_json_file(str(file)), EngineGraph(load_level(str(file)))):
                 with self.subTest(level=file.name, graph=type(graph).__name__):
@@ -159,7 +163,7 @@ class CommonSolverTests(unittest.TestCase):
             self.assertEqual(lengths[0], lengths[1])
 
     def test_switch_levels_with_tv3_graph(self):
-        for file in sorted(LEVELS.glob("g[34]_*.json")):
+        for file in numbered_levels(15, 20):
             with self.subTest(level=file.name):
                 graph = MazeGraph.from_json_file(str(file))
                 self.assert_replay(graph, BFSSovler(graph).solve())

@@ -26,7 +26,7 @@ from solvers.ucs import UCSovler
 from solvers.astar import AStarSovler
 from utils.measure import measure
 
-graph = EngineGraph(load_level("levels/g1_01.json"))
+graph = EngineGraph(load_level("levels/level_08.json"))
 for solver_class in (BFSSovler, DFSSovler, UCSovler, AStarSovler):
     solver = solver_class(graph)
     result = solver.search()  # solve() có cùng kết quả và cùng cách đo

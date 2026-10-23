@@ -1,10 +1,8 @@
 """Adapt the game rules engine to the JSON interface consumed by the GUI."""
 from __future__ import annotations
 
-import time
-import tracemalloc
-from collections import deque
 from pathlib import Path
+from threading import Event
 
 from game import (
     Direction,
@@ -15,23 +13,54 @@ from game import (
     Tile,
     TRANSITIONS,
     apply_move as rules_apply_move,
-    get_successors,
     initial_state as rules_initial_state,
-    is_goal,
     load_level,
 )
+from solvers.astar import AStarSovler
+from solvers.bfs import BFSSovler
+from solvers.dfs import DFSSovler
+from solvers.ucs import UCSovler
+from solvers.utils.engine_graph import ACTION_TO_DIRECTION, EngineGraph
 
 
 LEVELS_DIR = Path(__file__).resolve().parent.parent / "levels"
 LEVELS: dict[str, Level] = {
     path.stem: load_level(str(path)) for path in sorted(LEVELS_DIR.glob("*.json"))
 }
+
+
+class SolveCancelled(Exception):
+    """Raised when a solver search is cancelled by the GUI."""
+
+
+class _CancellableGraph:
+    def __init__(self, graph: EngineGraph, cancellation_event: Event):
+        self._graph = graph
+        self._cancellation_event = cancellation_event
+
+    def __getattr__(self, name):
+        return getattr(self._graph, name)
+
+    def _check_cancelled(self):
+        if self._cancellation_event.is_set():
+            raise SolveCancelled("Solver was stopped")
+
+    def is_goal(self, state):
+        self._check_cancelled()
+        return self._graph.is_goal(state)
+
+    def get_neighbors(self, state):
+        self._check_cancelled()
+        return self._graph.get_neighbors(state)
+
+
 DIRECTIONS = {
     "up": Direction.UP,
     "down": Direction.DOWN,
     "left": Direction.LEFT,
     "right": Direction.RIGHT,
 }
+LEVEL_ORDER = [f"level_{number:02}" for number in range(1, 21)]
 GUI_TILES = {
     Tile.VOID: ".",
     Tile.FLOOR: "o",
@@ -77,9 +106,11 @@ def _to_gui_level(level_id: str, level: Level) -> dict:
 
 
 def list_levels() -> list[dict[str, str]]:
+    ordered_ids = [level_id for level_id in LEVEL_ORDER if level_id in LEVELS]
+    ordered_ids.extend(sorted(set(LEVELS) - set(ordered_ids)))
     return [
-        {"id": level_id, "name": level.name, "group": "basic"}
-        for level_id, level in LEVELS.items()
+        {"id": level_id, "name": LEVELS[level_id].name, "group": "basic"}
+        for level_id in ordered_ids
     ]
 
 
@@ -142,50 +173,35 @@ def apply_move(level: dict, state: dict, action: str) -> dict:
     return _to_gui_state(rules_level, next_state, status)
 
 
-def solve(level: dict, algo: str) -> dict:
-    if algo != "bfs":
-        raise ValueError(f"{algo} is not implemented; only BFS is available")
-
+def solve(level: dict, algo: str, cancellation_event: Event | None = None) -> dict:
     rules_level = LEVELS[level["id"]]
-    start = rules_initial_state(rules_level)
-    frontier = deque([start])
-    parent = {start: None}
-    parent_move: dict[State, Direction] = {}
-    expanded = 0
-    found = None
+    solvers = {
+        "bfs": BFSSovler,
+        "dfs": DFSSovler,
+        "ucs": UCSovler,
+        "astar": AStarSovler,
+    }
+    try:
+        solver_class = solvers[algo]
+    except KeyError:
+        raise ValueError(f"Unsupported solver: {algo}") from None
 
-    tracemalloc.start()
-    start_time = time.perf_counter()
-    while frontier:
-        state = frontier.popleft()
-        expanded += 1
-        if is_goal(rules_level, state):
-            found = state
-            break
-        for direction, next_state in get_successors(rules_level, state):
-            if next_state in parent:
-                continue
-            parent[next_state] = state
-            parent_move[next_state] = direction
-            frontier.append(next_state)
-
-    path = None
-    if found is not None:
-        path = []
-        while parent[found] is not None:
-            path.append(parent_move[found].name.lower())
-            found = parent[found]
-        path.reverse()
-
-    peak = tracemalloc.get_traced_memory()[1]
-    tracemalloc.stop()
+    graph = EngineGraph(rules_level)
+    if cancellation_event is not None:
+        graph = _CancellableGraph(graph, cancellation_event)
+    result = solver_class(graph).solve()
+    path = (
+        [ACTION_TO_DIRECTION[action].name.lower() for action in result.actions]
+        if result.solved
+        else None
+    )
     return {
         "path": path,
-        "algo": "bfs",
+        "algo": algo,
         "stats": {
-            "search_time_ms": round((time.perf_counter() - start_time) * 1000, 3),
-            "peak_memory_kb": round(peak / 1024, 1),
-            "expanded_nodes": expanded,
-            "solution_length": len(path) if path is not None else None,
+            "search_time_ms": result.search_time_ms,
+            "peak_memory_kb": result.peak_memory_kb,
+            "expanded_nodes": result.expanded_nodes,
+            "solution_length": result.solution_length if result.solved else None,
         },
     }

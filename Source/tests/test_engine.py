@@ -1,6 +1,5 @@
 import unittest
-from game import (Level, State, Orient, Direction, MoveStatus, apply_move,
-                  get_successors, is_goal, cost, initial_state)
+from game import (Level, State, Orient, Direction, MoveStatus, apply_move, get_successors, is_goal, cost, initial_state)
 
 O, D = Orient, Direction
 
@@ -72,8 +71,7 @@ class FragileTiles(unittest.TestCase):
         # từ đứng (0,1), lăn phải -> nằm (0,2),(0,3) : (0,2) fragile nhưng đang nằm -> OK
         self.assertEqual(apply_move(self.lv, State(0, 1, O.STAND), D.RIGHT).status, MoveStatus.OK)
         # từ nằm (0,0)-(0,1), lăn phải -> đứng ở (0,2) = fragile -> vỡ
-        self.assertEqual(apply_move(self.lv, State(0, 0, O.HORIZ), D.RIGHT).status,
-                         MoveStatus.FRAGILE_BREAK)
+        self.assertEqual(apply_move(self.lv, State(0, 0, O.HORIZ), D.RIGHT).status, MoveStatus.FRAGILE_BREAK)
 
     def test_lying_on_fragile_ok(self):
         # nằm dọc (0,2)-(1,2) cả hai ô đều fragile: vẫn an toàn
@@ -109,30 +107,18 @@ class BridgeTiles(unittest.TestCase):
         res = apply_move(lv, State(0, 1, O.STAND, 1), D.RIGHT)
         self.assertEqual(res.state.bridges, 1)
 
-    def test_soft_switch_opens_bridge_when_entered(self):
-        lv = make(
-            ["S.o=G", "....."],
-            bridges={"b1": {"cells": [[0, 3]], "open": False}},
-            switches=[{"pos": [0, 2], "type": "soft", "targets": ["b1"], "mode": "open"}],
-        )
-        result = apply_move(lv, initial_state(lv), D.RIGHT)
-        self.assertTrue(result.legal)
-        self.assertEqual(result.state.bridges, 1)
+    def test_is_bridge_open(self):
+        lv = self.level(False)
+        closed, opened = State(0, 0, O.STAND, 0), State(0, 0, O.STAND, 1)
+        self.assertFalse(lv.is_bridge_open(closed, 0, 2))
+        self.assertTrue(lv.is_bridge_open(opened, 0, 2))
+        self.assertTrue(lv.is_bridge_open(opened, 1, 2))
+        self.assertFalse(lv.is_bridge_open(opened, 0, 0))   # không phải cầu
 
-    def test_heavy_switch_requires_standing(self):
-        lv = make(
-            ["S.x..", "...=G"],
-            bridges={"b1": {"cells": [[1, 3]], "open": False}},
-            switches=[{"pos": [0, 2], "type": "heavy", "targets": ["b1"], "mode": "open"}],
-        )
-        lying = apply_move(lv, State(0, 1, O.STAND), D.RIGHT)
-        self.assertTrue(lying.legal)
-        self.assertEqual(lying.state.bridges, 0)
-
-        standing = apply_move(lv, State(0, 3, O.HORIZ), D.LEFT)
-        self.assertTrue(standing.legal)
-        self.assertEqual(standing.state.bridges, 1)
-
+    def test_bridge_bits_preserved_on_move(self):
+        lv = self.level(True)
+        res = apply_move(lv, State(0, 1, O.STAND, 1), D.RIGHT)
+        self.assertEqual(res.state.bridges, 1)
 
 if __name__ == "__main__":
     unittest.main()

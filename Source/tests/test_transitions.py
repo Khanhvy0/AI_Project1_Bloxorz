@@ -1,5 +1,5 @@
 import unittest
-from game import State, Orient, Direction, TRANSITIONS
+from game import State, Orient, Direction, MOVES, TRANSITIONS
 
 O, D = Orient, Direction
 
@@ -13,7 +13,7 @@ class TransitionTable(unittest.TestCase):
     def test_table_complete(self):
         self.assertEqual(len(TRANSITIONS), 12)
         for o in O:
-            for d in D:
+            for d in MOVES:
                 self.assertIn((o, d), TRANSITIONS)
 
     def test_standing_cells(self):

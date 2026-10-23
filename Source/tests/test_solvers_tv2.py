@@ -145,7 +145,10 @@ class SolverTests(unittest.TestCase):
         self.assertLess(stats["expanded_nodes"], 3 * level.rows * level.cols)
 
     def test_tv2_levels_with_real_engine(self):
-        files = sorted(LEVELS_DIR.glob("g[1-4]_*.json"))
+        files = [
+            *(LEVELS_DIR / f"level_{number:02}.json" for number in range(1, 8)),
+            *(LEVELS_DIR / f"level_{number:02}.json" for number in range(15, 21)),
+        ]
         self.assertEqual(len(files), 13)
         for file in files:
             with self.subTest(level=file.name):

@@ -1,56 +1,184 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bloxorz Solver</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script type="importmap">
-  { "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  } }
-  </script>
-</head>
-<body>
-  <main>
-    <div id="stage">
-      <h1 class="brand">BLOXORZ</h1>
-      <div id="game-announcement" class="game-announcement" aria-live="assertive" hidden></div>
-    </div>
-    <aside>
-      <label for="level-select">Level</label>
-      <select id="level-select"></select>
-      <div class="row">
-        <button id="btn-new">New Game</button>
-        <button id="btn-restart">Restart</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bloxorz — Architectural Puzzle & AI Solver</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <div id="stage">
+        <!-- Floating Top Bar -->
+        <header class="stage-hud">
+          <div class="brand-box">
+            <span class="brand-subtitle"
+              >ISOMETRIC PUZZLE &bull; AI SOLVER</span
+            >
+            <h1 class="brand">Bloxorz</h1>
+          </div>
+          <div class="hud-pills">
+            <div class="hud-pill status-pill">
+              <span class="status-dot"></span>
+              <p id="hud-status">Playing</p>
+            </div>
+            <div class="hud-pill moves-pill">
+              <p id="hud-moves">Moves: 0</p>
+            </div>
+          </div>
+        </header>
+
+        <!-- Win/Loss Banner -->
+        <div
+          id="game-announcement"
+          class="game-announcement"
+          aria-live="assertive"
+          hidden
+        ></div>
+
+        <!-- Post-Solve Dialog -->
+        <section
+          id="solve-prompt"
+          class="solve-prompt"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="solve-prompt-title"
+          hidden
+        >
+          <span class="modal-eyebrow">HARMONY RESTORED</span>
+          <h2 id="solve-prompt-title">Path Completed</h2>
+          <p>
+            The monument has reached its equilibrium. Where would you like to
+            journey next?
+          </p>
+          <div class="solve-prompt-actions">
+            <button id="btn-solve-next" class="solve-prompt-action primary">
+              Continue to Next Chapter
+            </button>
+            <button id="btn-solve-replay" class="solve-prompt-action">
+              Observe This Level Again
+            </button>
+          </div>
+        </section>
       </div>
 
-      <h2>Solvers</h2>
-      <div class="solvers">
-        <button data-algo="bfs">BFS</button>
-        <button disabled title="Not implemented">DFS (IDS)</button>
-        <button disabled title="Not implemented">UCS</button>
-        <button disabled title="Not implemented">A* (not implemented)</button>
-      </div>
+      <aside>
+        <div class="control-group">
+          <div class="level-header-row">
+            <div class="level-select-wrap">
+              <label for="level-select">Chapter Selection</label>
+              <select id="level-select"></select>
+            </div>
+            <div
+              class="board-zoom-controls"
+              role="group"
+              aria-label="Board size"
+            >
+              <label>Scale</label>
+              <div class="zoom-pair">
+                <button
+                  id="btn-board-smaller"
+                  type="button"
+                  aria-label="Zoom out"
+                  title="Zoom Out"
+                >
+                  −
+                </button>
+                <button
+                  id="btn-board-larger"
+                  type="button"
+                  aria-label="Zoom in"
+                  title="Zoom In"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
 
-      <h2>Game</h2>
-      <p id="hud-status">Playing</p>
-      <p id="hud-moves">Moves: 0</p>
-      <p id="msg"></p>
+          <div class="row">
+            <button id="btn-new">Next Level</button>
+            <button id="btn-restart">Reset Board</button>
+          </div>
+        </div>
 
-      <section id="metrics-panel" hidden>
-        <h2>Search metrics</h2>
-        <dl id="stats">
-          <dt>Search time</dt><dd id="st-time">-</dd>
-          <dt>Expanded nodes</dt><dd id="st-nodes">-</dd>
-          <dt>Peak memory</dt><dd id="st-mem">-</dd>
-          <dt>Solution length</dt><dd id="st-len">-</dd>
-        </dl>
-      </section>
-      <p class="hint"><strong>Controls:</strong><br>Arrows / WASD: roll.<br>Space: switch cube.</p>
-    </aside>
-  </main>
-  <script type="module" src="/static/main.js"></script>
-</body>
+        <div class="control-group">
+          <h2>AI Search Solvers</h2>
+          <button id="btn-solve-stop" hidden>Stop Solver</button>
+          <div class="solvers">
+            <button data-algo="bfs">
+              <span class="algo-title">BFS</span>
+              <span class="algo-sub">Shortest Steps</span>
+            </button>
+            <button data-algo="dfs">
+              <span class="algo-title">DFS (IDS)</span>
+              <span class="algo-sub">Deepening Search</span>
+            </button>
+            <button data-algo="ucs">
+              <span class="algo-title">UCS</span>
+              <span class="algo-sub">Uniform Cost</span>
+            </button>
+            <button data-algo="astar">
+              <span class="algo-title">A* Search</span>
+              <span class="algo-sub">Heuristic Guided</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h2>Status Note</h2>
+          <div class="status-banner">
+            <p id="msg">Select a solver or use keyboard to guide the block.</p>
+          </div>
+        </div>
+
+        <section id="metrics-panel" class="control-group" hidden>
+          <h2>Search Metrics</h2>
+          <dl id="stats" class="metrics-grid">
+            <div class="metric-card">
+              <dt>Search time</dt>
+              <dd id="st-time">-</dd>
+            </div>
+            <div class="metric-card">
+              <dt>Expanded nodes</dt>
+              <dd id="st-nodes">-</dd>
+            </div>
+            <div class="metric-card">
+              <dt>Peak memory</dt>
+              <dd id="st-mem">-</dd>
+            </div>
+            <div class="metric-card">
+              <dt>Solution length</dt>
+              <dd id="st-len">-</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div class="hint">
+          <strong>Controls Guide</strong>
+          <div class="hint-line">
+            <span>Roll Block</span> <kbd>WASD</kbd> / <kbd>Arrows</kbd>
+          </div>
+          <div class="hint-line">
+            <span>Switch Split Cube</span> <kbd>Space</kbd>
+          </div>
+        </div>
+      </aside>
+    </main>
+    <script type="module" src="/static/main.js"></script>
+  </body>
 </html>
