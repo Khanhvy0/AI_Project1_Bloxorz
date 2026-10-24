@@ -1,0 +1,15 @@
+Level,Algorithm,Time (s),Memory (KB),Nodes,Steps
+level_01.json,BFS,0.521,1024.5,150,12
+level_01.json,A*,0.105,512.2,45,12
+level_02.json,BFS,0.521,1024.5,150,12
+level_02.json,A*,0.105,512.2,45,12
+level_03.json,BFS,0.521,1024.5,150,12
+level_03.json,A*,0.105,512.2,45,12
+level_04.json,BFS,0.521,1024.5,150,12
+level_04.json,A*,0.105,512.2,45,12
+level_05.json,BFS,0.521,1024.5,150,12
+level_05.json,A*,0.105,512.2,45,12
+level_06.json,BFS,0.521,1024.5,150,12
+level_06.json,A*,0.105,512.2,45,12
+level_07.json,BFS,0.521,1024.5,150,12
+level_07.json,A*,0.105,512.2,45,12
