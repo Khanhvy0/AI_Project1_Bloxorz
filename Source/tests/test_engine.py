@@ -1,6 +1,5 @@
 import unittest
-from game import (Level, State, Orient, Direction, MoveStatus, apply_move,
-                  get_successors, is_goal, cost, initial_state)
+from game import (Level, State, Orient, Direction, MoveStatus, apply_move, get_successors, is_goal, cost, initial_state)
 
 O, D = Orient, Direction
 
@@ -72,8 +71,7 @@ class FragileTiles(unittest.TestCase):
         # từ đứng (0,1), lăn phải -> nằm (0,2),(0,3) : (0,2) fragile nhưng đang nằm -> OK
         self.assertEqual(apply_move(self.lv, State(0, 1, O.STAND), D.RIGHT).status, MoveStatus.OK)
         # từ nằm (0,0)-(0,1), lăn phải -> đứng ở (0,2) = fragile -> vỡ
-        self.assertEqual(apply_move(self.lv, State(0, 0, O.HORIZ), D.RIGHT).status,
-                         MoveStatus.FRAGILE_BREAK)
+        self.assertEqual(apply_move(self.lv, State(0, 0, O.HORIZ), D.RIGHT).status, MoveStatus.FRAGILE_BREAK)
 
     def test_lying_on_fragile_ok(self):
         # nằm dọc (0,2)-(1,2) cả hai ô đều fragile: vẫn an toàn
@@ -109,6 +107,18 @@ class BridgeTiles(unittest.TestCase):
         res = apply_move(lv, State(0, 1, O.STAND, 1), D.RIGHT)
         self.assertEqual(res.state.bridges, 1)
 
+    def test_is_bridge_open(self):
+        lv = self.level(False)
+        closed, opened = State(0, 0, O.STAND, 0), State(0, 0, O.STAND, 1)
+        self.assertFalse(lv.is_bridge_open(closed, 0, 2))
+        self.assertTrue(lv.is_bridge_open(opened, 0, 2))
+        self.assertTrue(lv.is_bridge_open(opened, 1, 2))
+        self.assertFalse(lv.is_bridge_open(opened, 0, 0))   # không phải cầu
+
+    def test_bridge_bits_preserved_on_move(self):
+        lv = self.level(True)
+        res = apply_move(lv, State(0, 1, O.STAND, 1), D.RIGHT)
+        self.assertEqual(res.state.bridges, 1)
 
 if __name__ == "__main__":
     unittest.main()
