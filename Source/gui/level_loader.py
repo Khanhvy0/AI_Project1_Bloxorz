@@ -1,7 +1,7 @@
 """Đọc file level JSON của nhóm (thư mục levels/) và đổi sang dạng GUI/mock dùng.
 
 Ký hiệu trong file level của nhóm:
-  '#' void | '.' floor | '=' bridge | 'S' start | 'G' goal | 'o' soft switch | 'x' heavy switch
+  '#' void | '.' floor | '=' bridge | 'S' start | 'G' goal | 'o' soft switch | 'x' heavy switch | 's' split switch
 Vị trí start/goal lấy từ chữ 'S' và 'G' trong grid (file không có khóa riêng).
 Công tắc: lấy từ danh sách "switches" (grid chỉ đánh dấu chỗ đặt công tắc).
 """
@@ -11,7 +11,7 @@ import pathlib
 LEVELS_DIR = pathlib.Path(__file__).resolve().parent.parent / "levels"
 
 # ký hiệu của nhóm -> ký hiệu nội bộ của GUI ('.' void, 'o' floor, 'f' fragile, 'g' goal, 'b' bridge)
-SYMBOLS = {"#": ".", ".": "o", "=": "b", "S": "o", "G": "g", "F": "f", "o": "o", "x": "o"}
+SYMBOLS = {"#": ".", ".": "o", "=": "b", "S": "o", "G": "g", "F": "f", "o": "o", "x": "o", "s": "o"}
 
 
 def normalize(raw, level_id):

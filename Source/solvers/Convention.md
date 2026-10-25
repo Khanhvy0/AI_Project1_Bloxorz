@@ -34,7 +34,7 @@ for solver_class in (BFSSovler, DFSSovler, UCSovler, AStarSovler):
     print(measure(solver, repeats=3))
 ```
 
-`SolverResult` có `actions` (U/D/L/R), `solved`, `solution_length`,
+`SolverResult` có `actions` (U/D/L/R/SWITCH), `solved`, `solution_length`,
 `solution_cost`, `expanded_nodes`, `search_time_ms`, `peak_memory_kb`.
 Vô nghiệm: actions = [], solved = False, length = -1, cost = 0.
 Nếu ban đầu đã ở goal: actions = [], solved = True, length = 0, expanded = 0.
@@ -48,15 +48,16 @@ BFS tối ưu số bước, UCS tối ưu tổng cost; DFS không đảm bảo t
 ## Chọn cùng backend khi so sánh
 
 - `EngineGraph(level)`: gọi luật chơi và cost từ TV1, giữ nguyên toàn bộ State
-  (bridges, split, active). Dùng khi tích hợp với game/GUI. Switch và split vẫn
-  chờ TV1 hoàn thiện.
+  (bridges, split, active), hỗ trợ switch và split. `SWITCH` đổi khối đang điều
+  khiển và tính một bước, cost lấy từ engine. Dùng khi tích hợp với game/GUI.
 - `MazeGraph.from_json_file(path)`: backend độc lập của TV3, có soft/heavy switch,
   cost ô thường 1, cầu 1.5, fragile 3. Không tự thay bằng engine TV1.
 - Không so sánh các solver chạy trên hai backend khác nhau rồi kết luận về
   thuật toán: luật switch và cost đang khác nhau.
 - A* hỗ trợ State của TV1 và tuple state của TV3. Heuristic l1/l2 chia 2 giả định
-  mỗi bước dời ô neo tối đa 2 ô và cost >= 1. Nếu TV1 đổi cost xuống dưới 1 hoặc
-  thêm split/teleport thì TV3 cần xem lại heuristic.
+  mỗi bước dời ô neo tối đa 2 ô và cost >= 1. Với `graph.has_teleports = True`,
+  A* dùng h = 0 cho toàn bộ lượt tìm kiếm (kể cả trước split), nên chạy như UCS.
+  Nếu TV1 đổi cost xuống dưới 1 thì TV3 cần xem lại heuristic khoảng cách.
 - Đã bỏ phạt nằm +0.5 của l1: khối nằm ngang tại (0,1), goal (0,3) chỉ cần
   một lần lăn phải; công thức cũ cho 1.5 nên vượt chi phí thật 1.
 
@@ -83,4 +84,4 @@ python -m unittest discover -s tests -t . -v
 
 Bộ test tích hợp kiểm tra kế thừa, replay path, vô nghiệm/goal ban đầu,
 expanded, tách phép đo, UCS chọn đường rẻ hơn và A* khớp cost của UCS trên các
-màn TV2. Test toàn dự án còn lỗi đã có ở fixture level_02 vì TV1 chưa xử lý switch.
+màn hiện có, gồm màn 21 bắt buộc split, đổi khối, mở cầu và ghép lại.

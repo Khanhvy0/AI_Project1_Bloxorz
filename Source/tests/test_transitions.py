@@ -53,7 +53,7 @@ class TransitionTable(unittest.TestCase):
         """Lăn rồi lăn ngược lại phải về đúng trạng thái cũ (tính chất vật lý của khối)."""
         for o in O:
             s = State(10, 10, o)
-            for d in D:
+            for d in MOVES:
                 self.assertEqual(roll(roll(s, d), d.opposite), s, (o, d))
 
     def test_cells_count(self):

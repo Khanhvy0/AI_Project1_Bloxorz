@@ -1,12 +1,14 @@
 """Adapter Graph cho engine TV1, giữ nguyên State gồm bridges/split/active."""
 
 from game import engine
+from game.level import Tile
 from game.state import Direction
 
 
 ACTION_TO_DIRECTION = {
     "U": Direction.UP, "D": Direction.DOWN,
     "L": Direction.LEFT, "R": Direction.RIGHT,
+    "SWITCH": Direction.SWITCH,
 }
 DIRECTION_TO_ACTION = {direction: action for action, direction in ACTION_TO_DIRECTION.items()}
 
@@ -23,6 +25,7 @@ class EngineGraph:
         self.name = level.name
         self.start_state = engine.initial_state(level)
         self.goal_pos = level.goal
+        self.has_teleports = any(sw.kind == Tile.SPLIT for sw in level.switch_at.values())
 
     def is_goal(self, state):
         return engine.is_goal(self.level, state)

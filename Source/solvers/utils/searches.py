@@ -74,6 +74,9 @@ def a_star_search(
     start = graph.start_state
     goal_rc = graph.goal_pos
     h_func = heuristic_dict[heuristic]
+    # Teleport có thể rút ngắn đường đi ngay từ trước khi tách khối.
+    if getattr(graph, "has_teleports", False):
+        h_func = lambda state, goal: 0.0
 
     # Counter phụ `tie_breaker` giúp heapq không bị lỗi khi 2 state có cùng f_score
     tie_breaker = 0
@@ -168,7 +171,7 @@ def bfs_search(graph) -> tuple[list[str], int]:
 
 
 def dfs_search(graph) -> tuple[list[str], int]:
-    """DFS dùng stack, không tối ưu; ưu tiên U, D, L, R theo thứ tự graph trả."""
+    """DFS không tối ưu; ưu tiên U, D, L, R, SWITCH theo thứ tự EngineGraph trả."""
     start = graph.start_state
     stack = [start]
     visited = {start}
