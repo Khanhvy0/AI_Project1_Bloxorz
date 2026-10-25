@@ -15,6 +15,7 @@ from utils.measure import measure
 
 
 LEVELS_DIR = Path(__file__).resolve().parents[1] / "levels"
+SPLIT_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "tv2_split"
 SOLVERS = (bfs_solve, dfs_solve, solve_ids)
 STATS_KEYS = {"time_ms", "memory_kb", "expanded_nodes", "solution_length", "solution_cost"}
 
@@ -159,7 +160,7 @@ class SolverTests(unittest.TestCase):
                 self.assertLessEqual(stats["expanded_nodes"], 13 * 3 * level.rows * level.cols)
 
     def test_split_paths_keep_direction_api(self):
-        level = load_level(str(LEVELS_DIR / "level_21.json"))
+        level = load_level(str(SPLIT_FIXTURES / "level_21.json"))
         for solver in SOLVERS:
             with self.subTest(solver=solver.__name__):
                 path, stats = solver(level)
@@ -206,7 +207,7 @@ class SolverTests(unittest.TestCase):
 
 class MeasureTests(unittest.TestCase):
     def test_split_measurement_is_repeatable_and_counts_control_switch(self):
-        level = load_level(str(LEVELS_DIR / "level_21.json"))
+        level = load_level(str(SPLIT_FIXTURES / "level_21.json"))
         initial = engine.initial_state(level)
         path, _ = bfs_solve(level)
         self.assertIn(D.SWITCH, path)

@@ -1,32 +1,59 @@
 {
   "name": "level_21",
   "grid": [
-    "S.s.#.=...#####",
-    "....###...##...",
-    "....###...==..G",
-    "#######o..##...",
-    "#######FFF#####",
-    "#######.x.#####"
+    "###.....FF....#",
+    "###.G..#####F.#",
+    "###...######F.x",
+    "#######F..==...",
+    "##S####FF#####.",
+    "#x.F###FF#####.",
+    "FFFF###..=##=..",
+    "FFF.F.FF.F##x.=",
+    ".FFFFFFFFFFF.##",
+    "#F.FFF##FFFF.##"
   ],
   "bridges": {
     "b1": {
       "cells": [
         [
-          0,
-          6
+          3,
+          10
         ]
       ],
-      "open": false
+      "open": true
     },
     "b2": {
       "cells": [
         [
-          2,
-          10
-        ],
-        [
-          2,
+          3,
           11
+        ]
+      ],
+      "open": true
+    },
+    "b3": {
+      "cells": [
+        [
+          6,
+          9
+        ]
+      ],
+      "open": false
+    },
+    "b4": {
+      "cells": [
+        [
+          6,
+          12
+        ]
+      ],
+      "open": false
+    },
+    "b5": {
+      "cells": [
+        [
+          7,
+          14
         ]
       ],
       "open": false
@@ -35,42 +62,40 @@
   "switches": [
     {
       "pos": [
-        0,
-        2
+        5,
+        1
       ],
-      "type": "split",
-      "cubes": [
-        [
-          0,
-          5
-        ],
-        [
-          5,
-          9
-        ]
+      "type": "heavy",
+      "mode": "open",
+      "targets": [
+        "b1",
+        "b2"
       ]
     },
     {
       "pos": [
-        3,
-        7
+        2,
+        14
       ],
-      "type": "soft",
+      "type": "heavy",
+      "mode": "toggle",
       "targets": [
-        "b1"
-      ],
-      "mode": "open"
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
     },
     {
       "pos": [
-        5,
-        8
+        7,
+        12
       ],
       "type": "heavy",
+      "mode": "toggle",
       "targets": [
-        "b2"
-      ],
-      "mode": "open"
+        "b5"
+      ]
     }
   ]
 }

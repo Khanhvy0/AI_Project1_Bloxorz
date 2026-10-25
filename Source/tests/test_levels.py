@@ -1,7 +1,7 @@
 """Kiểm tra mọi file trong levels/ (kịch bản test theo nhóm độ khó)."""
 import glob, os, unittest
 from dataclasses import replace
-from game import load_level, initial_state, State
+from game import load_level, initial_state, State, Tile
 import game.engine as engine
 from tests.helpers import bfs_path_length
 
@@ -32,6 +32,8 @@ class LevelFiles(unittest.TestCase):
             with self.subTest(level=os.path.basename(f)):
                 lv = load_level(f)
                 lv.initial_bridges = (1 << len(lv.bridge_ids)) - 1
+                # Chỉ kiểm tra bố cục: nút bẫy không được đóng lại cầu trong lượt này.
+                lv.switch_at = {pos: sw for pos, sw in lv.switch_at.items() if sw.kind == Tile.SPLIT}
                 self.assertIsNotNone(bfs_path_length(lv), "goal không tới được dù mọi cầu mở")
 
     def test_solvable_without_switches(self):

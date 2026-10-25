@@ -65,6 +65,20 @@ class GuiEngineAdapterTests(unittest.TestCase):
                     state = engine_adapter.apply_move(level, state, action)
                 self.assertEqual(state["status"], "won")
 
+    def test_replacement_levels_replay_without_split_controls(self):
+        for level_id in ("level_19", "level_20", "level_21"):
+            for algo in ("bfs", "dfs", "ucs", "astar"):
+                with self.subTest(level=level_id, algo=algo):
+                    level = engine_adapter.get_level(level_id)
+                    result = engine_adapter.solve(level, algo)
+                    self.assertIsNotNone(result["path"])
+                    state = engine_adapter.initial_state(level)
+                    for action in result["path"]:
+                        self.assertIn(action, ("up", "down", "left", "right"))
+                        state = engine_adapter.apply_move(level, state, action)
+                        self.assertEqual(len(state["blocks"]), 1)
+                    self.assertEqual(state["status"], "won")
+
     def test_solve_api_accepts_all_solvers(self):
         client = create_app().test_client()
         for algo in ("bfs", "dfs", "ucs", "astar"):

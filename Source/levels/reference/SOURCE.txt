@@ -1,0 +1,46 @@
+Source: https://github.com/jacobcoughenour/bloxorz_gba
+Author: jacobcoughenour (Jacob Coughenour / nostabyte)
+Revision: f57ebb6bd57e9d2b42ab478a3d19e53028e62b1d
+Original file: game/levels.json
+Imported on: 2026-10-25
+Upstream license: GNU GPL version 3; see LICENSE in this directory.
+
+gba_levels.json is an unchanged copy of the upstream data. The upstream README
+describes these as the 33 stages from the original Bloxorz. These layouts are
+third-party data, not original level designs by TV2. No graphics, audio, or
+gameplay code from the upstream project is included.
+
+Source/levels/level_01.json through level_18.json are format conversions of
+the source stages listed in selection.json. level_19.json through level_21.json
+are adaptations of source stages 17, 31, and 30. The imported/adapted data retains
+its upstream license. The team's old split exercises now live in
+tests/fixtures/tv2_split and are not loaded into the playable level list.
+
+Conversion: b -> floor, e -> goal, f -> fragile, s -> soft, h -> heavy;
+l/r -> initially closed bridge, k/q -> initially open bridge.
+spawn and bridge targets are [x,y] upstream and [row,column] locally.
+Switch keys encode x*10+y. onoff/on/off become toggle/open/close.
+Each bridge tile has its own group, preserving independent tile behavior.
+Grid dimensions, starting position, goal, initial bridge states, and switch
+effects are unchanged for levels 01-18. S replaces the ordinary spawn tile.
+
+Adaptations for levels 19-21 (the layouts and spawn/goal are unchanged):
+19 / source 17: switch key 129 at [9,12] becomes toggle.
+20 / source 31: switch key 28 at [8,2] becomes toggle.
+21 / source 30: switch key 142 at [2,14] becomes toggle.
+For each adapted switch, targets originally using off start open, and targets
+using on start closed. All of its targets now toggle together. This expresses
+a reversible route change in TV1's one-mode-per-switch format. It intentionally
+differs from the source's permanent on/off effects after the first activation.
+All other switch effects remain unchanged. The adapted switch in each of these
+three levels is necessary: disabling its effect makes the level unsolvable.
+
+Excluded source stages with split (two 1x1 cubes):
+8, 9, 10, 15, 16, 20, 23, 24, 26, 28.
+Excluded source stages with mixed modes not selected for adaptation: 25, 29.
+Source stages 17, 30, 31 were explicitly adapted as described above.
+
+To reproduce in a separate output directory, from Source:
+python levels/import_gba.py levels/reference/gba_levels.json OUTPUT_DIRECTORY
+The script reads selection.json, validates the results with TV1's loader,
+and generates level_01.json through level_21.json, including the adaptations.

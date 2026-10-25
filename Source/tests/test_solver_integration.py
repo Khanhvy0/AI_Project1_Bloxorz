@@ -22,6 +22,7 @@ from utils.measure import measure
 
 CLASSES = (BFSSovler, DFSSovler, UCSovler, AStarSovler, IDSSovler)
 LEVELS = Path(__file__).resolve().parents[1] / "levels"
+SPLIT_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "tv2_split"
 
 
 def numbered_levels(first, last):
@@ -156,7 +157,9 @@ class CommonSolverTests(unittest.TestCase):
         self.assertLessEqual(l1_heuristic(lying, graph.goal_pos), 1.0)
 
     def test_basic_and_fragile_levels_across_backends(self):
-        for file in numbered_levels(1, 7):
+        for file in sorted(LEVELS.glob("level_*.json")):
+            if load_level(str(file)).switch_at:
+                continue
             lengths = []
             for graph in (MazeGraph.from_json_file(str(file)), EngineGraph(load_level(str(file)))):
                 with self.subTest(level=file.name, graph=type(graph).__name__):
@@ -172,8 +175,10 @@ class CommonSolverTests(unittest.TestCase):
             self.assertEqual(lengths[0], lengths[1])
 
     def test_switch_levels_with_tv3_graph(self):
-        # MazeGraph chưa hỗ trợ split; nhóm 19–21 kiểm tra bằng EngineGraph.
-        for file in numbered_levels(8, 18):
+        # Bộ màn chính không còn split; các tình huống split được giữ trong fixtures.
+        for file in sorted(LEVELS.glob("level_*.json")):
+            if not load_level(str(file)).switch_at:
+                continue
             with self.subTest(level=file.name):
                 graph = MazeGraph.from_json_file(str(file))
                 self.assert_replay(graph, BFSSovler(graph).solve())
@@ -202,16 +207,18 @@ class CommonSolverTests(unittest.TestCase):
                 self.assertEqual(result.solution_length, -1)
 
     def test_ids_matches_bfs_on_each_group(self):
-        for number in (1, 5, 8, 13, 16, 19, 20, 21):
-            with self.subTest(level=number):
-                graph = EngineGraph(load_level(str(LEVELS / f"level_{number:02}.json")))
+        files = [LEVELS / f"level_{n:02}.json" for n in (1, 2, 4, 7, 16, 19, 20, 21)]
+        files += sorted(SPLIT_FIXTURES.glob("*.json"))
+        for file in files:
+            with self.subTest(level=str(file)):
+                graph = EngineGraph(load_level(str(file)))
                 bfs = BFSSovler(graph).solve()
                 ids = IDSSovler(graph, max_depth=bfs.solution_length).solve()
                 self.assert_replay(graph, ids)
                 self.assertEqual(ids.solution_length, bfs.solution_length)
 
     def test_split_level_requires_control_switch_and_replays_events(self):
-        graph = EngineGraph(load_level(str(LEVELS / "level_21.json")))
+        graph = EngineGraph(load_level(str(SPLIT_FIXTURES / "level_21.json")))
         result = BFSSovler(graph).solve()
         self.assert_replay(graph, result)
         self.assertIn("SWITCH", result.actions)
@@ -231,7 +238,7 @@ class CommonSolverTests(unittest.TestCase):
             self.assertFalse(BFSSovler(graph).solve().solved)
 
     def test_astar_teleport_fallback_covers_the_entire_search(self):
-        files = [LEVELS / "level_21.json", LEVELS.parent / "tests/fixtures/level_10.json"]
+        files = [SPLIT_FIXTURES / "level_21.json", LEVELS.parent / "tests/fixtures/level_10.json"]
         for file in files:
             graph = EngineGraph(load_level(str(file)))
             ucs = UCSovler(graph).solve()
