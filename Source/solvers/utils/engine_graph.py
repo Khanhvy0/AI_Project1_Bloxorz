@@ -7,6 +7,7 @@ from game.state import Direction
 ACTION_TO_DIRECTION = {
     "U": Direction.UP, "D": Direction.DOWN,
     "L": Direction.LEFT, "R": Direction.RIGHT,
+    "S": Direction.SWITCH,  # đổi khối khi đang ở chế độ split
 }
 DIRECTION_TO_ACTION = {direction: action for action, direction in ACTION_TO_DIRECTION.items()}
 

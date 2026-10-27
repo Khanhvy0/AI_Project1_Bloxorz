@@ -24,6 +24,11 @@ def _pose(state):
 
 def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
     """Manhattan / 2: mỗi nước dời ô neo nhiều nhất 2 ô, với cost tối thiểu 1."""
+    if hasattr(state, "is_split") and state.is_split:
+        c1, c2 = state.split
+        d1 = ln_norm(c1, goal_rc, 1)
+        d2 = ln_norm(c2, goal_rc, 1)
+        return max(d1, d2) / 2.0
     r, c, _ = _pose(state)
     # Không cộng phạt nằm: H(0,1) -> goal(0,3) chỉ tốn 1 bước.
     return ln_norm((r, c), goal_rc, 1) / 2.0
@@ -31,6 +36,11 @@ def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
 
 def l2_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
     """Khoảng cách Euclid chia 2."""
+    if hasattr(state, "is_split") and state.is_split:
+        c1, c2 = state.split
+        d1 = ln_norm(c1, goal_rc, 2)
+        d2 = ln_norm(c2, goal_rc, 2)
+        return max(d1, d2) / 2.0
     r, c, _ = _pose(state)
 
     return ln_norm((r, c), goal_rc, 2) / 2.0

@@ -11,7 +11,7 @@ import pathlib
 LEVELS_DIR = pathlib.Path(__file__).resolve().parent.parent / "levels"
 
 # ký hiệu của nhóm -> ký hiệu nội bộ của GUI ('.' void, 'o' floor, 'f' fragile, 'g' goal, 'b' bridge)
-SYMBOLS = {"#": ".", ".": "o", "=": "b", "S": "o", "G": "g", "F": "f", "o": "o", "x": "o"}
+SYMBOLS = {"#": ".", ".": "o", "=": "b", "S": "o", "G": "g", "F": "f", "o": "o", "x": "o", "s": "o"}
 
 
 def normalize(raw, level_id):
