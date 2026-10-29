@@ -62,7 +62,7 @@ DIRECTIONS = {
     "switch": Direction.SWITCH,  # dùng khi solver replay qua màn có split
     "swap": Direction.SWITCH,    # phím cách từ GUI người chơi
 }
-LEVEL_ORDER = [f"level_{n:02d}" for n in range(1, 22)]
+LEVEL_ORDER = [f"level_{n:02d}" for n in range(1, 27)]
 GUI_TILES = {
     Tile.VOID: ".",
     Tile.FLOOR: "o",

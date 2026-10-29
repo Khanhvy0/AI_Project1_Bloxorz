@@ -192,7 +192,7 @@ class SolverTests(unittest.TestCase):
     def test_tv2_levels_with_real_engine(self):
         files = sorted(f for f in LEVELS_DIR.glob("level_*.json")
                        if not f.stem.endswith("_test"))
-        self.assertEqual(len(files), 21)
+        self.assertEqual(len(files), 26)
         for file in files:
             with self.subTest(level=file.name):
                 level = load_level(str(file))
