@@ -15,6 +15,7 @@ from utils.measure import measure
 
 
 LEVELS_DIR = Path(__file__).resolve().parents[1] / "levels"
+SPLIT_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "tv2_split"
 SOLVERS = (bfs_solve, dfs_solve, solve_ids)
 STATS_KEYS = {"time_ms", "memory_kb", "expanded_nodes", "solution_length", "solution_cost"}
 
@@ -98,9 +99,8 @@ class SolverTests(unittest.TestCase):
         start = State(0, 0, Orient.STAND)
         goal = State(0, 3, Orient.STAND)
         variants = (
-            replace(start, bridges=1),
-            replace(start, split=((0, 0), (0, 1))),
-            replace(start, active=1),
+            start._replace(bridges=1),
+            State.make_split((0, 0), (0, 2), (0, 0), 0),
         )
         level = make_level(["S..G"])
         for variant in variants:
@@ -111,7 +111,6 @@ class SolverTests(unittest.TestCase):
                         path, stats = solver(level)
                     self.assertEqual(path, [D.DOWN, D.RIGHT])
                     self.assertEqual(stats["solution_length"], 2)
-        # Đây chỉ là test khóa State, không mô phỏng luật split của Tuần 2.
 
     def test_ids_allows_a_shorter_revisit(self):
         level = make_level(["S..G"])
@@ -129,14 +128,60 @@ class SolverTests(unittest.TestCase):
         self.assertEqual(path, [D.DOWN, D.RIGHT, D.RIGHT])
         self.assertEqual(stats["solution_length"], 3)
 
+    def test_split_active_is_part_of_visited_key(self):
+        level = make_level(["S..G"])
+        start = State.make_split((0, 0), (0, 2), (0, 0), 0)
+        switched = start._replace(active=1)
+        goal = State(0, 3, Orient.STAND)
+        graph = {
+            start: [(D.SWITCH, switched)],
+            switched: [(D.SWITCH, start), (D.RIGHT, goal)],
+        }
+        for solver in SOLVERS:
+            with self.subTest(solver=solver.__name__):
+                with patch.object(engine, "initial_state", return_value=start), patch.object(
+                    engine, "get_successors", side_effect=lambda lv, s: graph.get(s, [])
+                ):
+                    path, stats = solver(level)
+                self.assertEqual(path, [D.SWITCH, D.RIGHT])
+                self.assertEqual(stats["solution_cost"], 2)
+
+    def test_unsolvable_cycle_terminates(self):
+        level = make_level(["S...#G", "....##", "....##"])
+        start = engine.initial_state(level)
+        right = engine.apply_move(level, start, D.RIGHT).state
+        self.assertEqual(engine.apply_move(level, right, D.LEFT).state, start)
+        for solver in SOLVERS:
+            with self.subTest(solver=solver.__name__):
+                kwargs = {"max_depth": 12} if solver is solve_ids else {}
+                path, stats = solver(level, **kwargs)
+                self.assertIsNone(path)
+                self.assertGreater(stats["expanded_nodes"], 1)
+                self.assertLessEqual(stats["expanded_nodes"], 13 * 3 * level.rows * level.cols)
+
+    def test_split_paths_keep_direction_api(self):
+        level = load_level(str(SPLIT_FIXTURES / "level_21.json"))
+        for solver in SOLVERS:
+            with self.subTest(solver=solver.__name__):
+                path, stats = solver(level)
+                self.assert_solution(level, path, stats)
+                self.assertIn(D.SWITCH, path)
+
     def test_ids_depth_limit(self):
         level = make_level(["S...", "....", "...G"])
+        path, stats = solve_ids(level, max_depth=0)
+        self.assertIsNone(path)
+        self.assertEqual(stats["expanded_nodes"], 0)
         path, _ = solve_ids(level, max_depth=3)
         self.assertIsNone(path)
         path, _ = solve_ids(level, max_depth=4)
         self.assertEqual(len(path), 4)
-        with self.assertRaises(ValueError):
-            solve_ids(level, max_depth=-1)
+        for limit in (-1, True, 1.5):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                solve_ids(level, max_depth=limit)
+        path, stats = solve_ids(replace(level, goal=level.start), max_depth=0)
+        self.assertEqual(path, [])
+        self.assertEqual(stats["expanded_nodes"], 0)
 
     def test_dfs_cycle_terminates(self):
         level = make_level(["S.....", "......", ".....G"])
@@ -145,17 +190,12 @@ class SolverTests(unittest.TestCase):
         self.assertLess(stats["expanded_nodes"], 3 * level.rows * level.cols)
 
     def test_tv2_levels_with_real_engine(self):
-        files = [
-            *(LEVELS_DIR / f"level_{number:02}.json" for number in range(1, 8)),
-            *(LEVELS_DIR / f"level_{number:02}.json" for number in range(15, 21)),
-        ]
-        self.assertEqual(len(files), 13)
+        files = sorted(f for f in LEVELS_DIR.glob("level_*.json")
+                       if not f.stem.endswith("_test"))
+        self.assertEqual(len(files), 21)
         for file in files:
             with self.subTest(level=file.name):
                 level = load_level(str(file))
-                # Switch chưa hoạt động: chỉ kiểm tra bố cục với mọi cầu mở.
-                if level.switches:
-                    level = replace(level, initial_bridges=(1 << len(level.bridge_ids)) - 1)
                 path, stats = bfs_solve(level)
                 self.assert_solution(level, path, stats)
 
@@ -167,6 +207,21 @@ class SolverTests(unittest.TestCase):
 
 
 class MeasureTests(unittest.TestCase):
+    def test_split_measurement_is_repeatable_and_counts_control_switch(self):
+        level = load_level(str(SPLIT_FIXTURES / "level_21.json"))
+        initial = engine.initial_state(level)
+        path, _ = bfs_solve(level)
+        self.assertIn(D.SWITCH, path)
+        reports = [measure(bfs_solve, level, repeats=2) for _ in range(2)]
+        for report in reports:
+            self.assertTrue(report["solved"])
+            self.assertEqual(report["length"], len(path))
+            self.assertGreaterEqual(report["time_s"], 0)
+            self.assertGreater(report["peak_mem_kb"], 0)
+        self.assertEqual(reports[0]["expanded"], reports[1]["expanded"])
+        self.assertEqual(engine.initial_state(level), initial)
+        self.assertFalse(tracemalloc.is_tracing())
+
     def test_report_uses_standard_solver_stats(self):
         level = make_level(["S...", "....", "...G"])
         result = measure(bfs_solve, level, algorithm="BFS", repeats=2)
