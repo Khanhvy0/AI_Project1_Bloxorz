@@ -440,7 +440,7 @@ function buildBoard(level) {
   );
   const halfFov = Math.min(verticalHalfFov, horizontalHalfFov);
   const boardRadius = Math.hypot(cols / 2, rows / 2, 1);
-  const distance = (boardRadius / Math.sin(halfFov)) * 1.15;
+  const distance = (boardRadius / Math.sin(halfFov)) * 0.9;
   const target = controls.target;
   camera.position.set(
     target.x + (distance * 0.37) / boardZoom,
