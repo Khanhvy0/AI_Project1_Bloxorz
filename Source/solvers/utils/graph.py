@@ -15,7 +15,7 @@ StateType = tuple[int, int, int, tuple[bool, ...]]
 class MazeGraph:
     def __init__(self, level_data: dict):
         """
-        Đọc trực tiếp cấu trúc từ file JSON:
+        Đọc cấu trúc JSON:
         - "grid": list[str]
         - "bridges": dict[str, {"cells": list[list[int]], "open": bool}]
         - "switches": list[{"pos": [r, c], "type": "soft"|"heavy", "targets": list[str], "mode": str}]
@@ -24,7 +24,7 @@ class MazeGraph:
         self.matrix: list[str] = level_data["grid"]
         self.rows = len(self.matrix)
         self.cols = len(self.matrix[0]) if self.rows > 0 else 0
-
+        self._open_cache: dict[tuple[bool, ...], set] = {}
         # 1. Quét ma trận "grid" để tự động tìm tọa độ Start ('S') và Goal ('G')
         start_pos = None
         goal_pos = None
@@ -82,6 +82,16 @@ class MazeGraph:
                 "target_indices": target_indices, # Danh sách index của cầu trong bridge_states
             }
             self.switches.setdefault(pos, []).append(sw_parsed)
+
+    def _open_cells(self, bridge_states):
+        s = self._open_cache.get(bridge_states)
+        if s is None:
+            s = set()
+            for idx, is_open in enumerate(bridge_states):
+                if is_open:
+                    s.update(self.bridge_cells[idx])
+            self._open_cache[bridge_states] = s
+        return s
 
     @classmethod
     def from_json_file(cls, filepath: str) -> "MazeGraph":
@@ -158,36 +168,37 @@ class MazeGraph:
                             elif mode == "toggle":
                                 new_bridges[b_idx] = not new_bridges[b_idx]
 
-        return tuple(new_bridges)
+        result = tuple(new_bridges)
+        return current_bridges if result == current_bridges else result
+    def _candidates(self, r, c, orient):
+        if orient == STANDING:
+            return [("U", r - 2, c, VERTICAL), ("D", r + 1, c, VERTICAL),
+                    ("L", r, c - 2, HORIZONTAL), ("R", r, c + 1, HORIZONTAL)]
+        if orient == HORIZONTAL:
+            return [("U", r - 1, c, HORIZONTAL), ("D", r + 1, c, HORIZONTAL),
+                    ("L", r, c - 1, STANDING), ("R", r, c + 2, STANDING)]
+        return [("U", r - 1, c, STANDING), ("D", r + 2, c, STANDING),
+                ("L", r, c - 1, VERTICAL), ("R", r, c + 1, VERTICAL)]
 
+    def step_cost(self, r, c, orient) -> float:
+        cost = 1.0
+        for cr, cc in self.get_occupied_cells(r, c, orient):
+            tile = self.matrix[cr][cc]
+            if tile in ("F", "f", "~"):
+                return 3.0
+            if tile == "=":
+                cost = max(cost, 1.5)
+        return cost
+
+    
     def get_neighbors(self, state: StateType) -> list[tuple[str, StateType, float]]:
         """
         Sinh danh sách các bước đi hợp lệ tiếp theo: [(action, next_state, step_cost), ...]
         """
         r, c, orient, bridge_states = state
 
-        # Bảng chuyển trạng thái (Orientation Transition Table - Mục 2.3)
-        if orient == STANDING:
-            candidates = [
-                ("U", r - 2, c, VERTICAL),
-                ("D", r + 1, c, VERTICAL),
-                ("L", r, c - 2, HORIZONTAL),
-                ("R", r, c + 1, HORIZONTAL),
-            ]
-        elif orient == HORIZONTAL:
-            candidates = [
-                ("U", r - 1, c, HORIZONTAL),
-                ("D", r + 1, c, HORIZONTAL),
-                ("L", r, c - 1, STANDING),
-                ("R", r, c + 2, STANDING),
-            ]
-        else:  # VERTICAL
-            candidates = [
-                ("U", r - 1, c, STANDING),
-                ("D", r + 2, c, STANDING),
-                ("L", r, c - 1, VERTICAL),
-                ("R", r, c + 1, VERTICAL),
-            ]
+        # Bảng chuyển trạng thái (Orientation Transition Table)
+        candidates = self._candidates(r,c, orient)
 
         valid_moves = []
         for action, nr, nc, n_orient in candidates:
@@ -204,18 +215,7 @@ class MazeGraph:
 
             # Kiểm tra lại lần nữa (phòng trường hợp dẫm công tắc làm đóng chính cây cầu đang đứng)
             if self.is_valid_state(next_state):
-                # Tính step_cost cho UCS:
-                # Đi qua ô Fragile ('F', 'f', '~') tốn cost = 3.0, đi qua cầu ('=') tốn 1.5, ô thường tốn 1.0
-                step_cost = 1.0
-
-                for cell_r, cell_c in occupied:
-                    tile = self.matrix[cell_r][cell_c]
-                    if tile in ("F", "f", "~"):
-                        step_cost = 3.0
-                        break
-                    elif tile == "=":
-                        step_cost = max(step_cost, 1.5)
-
+                step_cost = self.step_cost(nr, nc, n_orient)
                 valid_moves.append((action, next_state, step_cost))
 
         return valid_moves
@@ -224,3 +224,8 @@ class MazeGraph:
         """Kiểm tra chiến thắng: Khối gỗ phải ĐỨNG thẳng ngay tại ô Goal ('G')."""
         r, c, orient, _ = state
         return orient == STANDING and (r, c) == self.goal_pos
+
+
+
+
+    
