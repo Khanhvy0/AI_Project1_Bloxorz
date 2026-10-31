@@ -183,10 +183,16 @@ class MazeGraph:
         cost = 1.0
         for cr, cc in self.get_occupied_cells(r, c, orient):
             tile = self.matrix[cr][cc]
-            if tile in ("F", "f", "~"):
-                return 3.0
-            if tile == "=":
+            # Ô dễ vỡ
+            if tile == 'F':
+                return 2.0
+            # Ô cầu
+            elif tile == "=":
                 cost = max(cost, 1.5)
+            # Ô nút bấm
+            elif tile == 'O' or (tile == 'X' and orient == STANDING):
+                cost = 0.5
+        # chi phí mặc định là 1
         return cost
 
     
