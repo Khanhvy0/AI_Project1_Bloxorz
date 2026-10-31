@@ -136,9 +136,8 @@ class MazeGraph:
             if tile == "=" and (cell_r, cell_c) not in open_bridge_cells:
                 return False
 
-            # 4. Kiểm tra Fragile tile (ký hiệu 'F', 'f', hoặc '~'): Cấm đứng thẳng
-            # Hiện đoán mò thội:), nào có doc đủ thông tin bỏ bớt ra
-            if tile in ("F", "f", "~") and orient == STANDING:
+            # 4. Kiểm tra Fragile tile: Cấm đứng thẳng
+            if tile == "F" and orient == STANDING:
                 return False
 
         return True
