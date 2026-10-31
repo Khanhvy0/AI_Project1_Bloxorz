@@ -673,7 +673,8 @@ let level = null,
   levels = [],
   busy = false,
   replaying = false,
-  moves = 0;
+  moves = 0,
+  runningSolver = null;
 let metricsVisible = false;
 let solveAbortController = null,
   activeSolveId = null,
@@ -718,8 +719,7 @@ function askAfterSolve() {
 async function announceResult(status) {
   const announcement = $("game-announcement");
   announcement.className = `game-announcement ${status}`;
-  announcement.textContent =
-    status === "won" ? "You Win!" : "You Fell!";
+  announcement.textContent = status === "won" ? "You Win!" : "You Fell!";
   announcement.hidden = false;
   await sleep(2000);
   announcement.hidden = true;
@@ -758,9 +758,10 @@ async function act(action, ms = ROLL_MS) {
       state,
       action,
     });
-    if (action !== "swap" && action !== "switch") await rollBlock(state.active, action, ms);
+    if (action !== "swap" && action !== "switch")
+      await rollBlock(state.active, action, ms);
     state = next;
-    moves += 1;
+    if (action !== "swap") moves += 1;
     renderState();
     if (next.status === "lost") {
       await Promise.all([
@@ -784,10 +785,19 @@ async function act(action, ms = ROLL_MS) {
   }
 }
 
+function updateSolverButtonState() {
+  document.querySelectorAll(".solvers button").forEach((button) => {
+    const isRunning = button.dataset.algo === runningSolver;
+    button.classList.toggle("solver-running", isRunning);
+  });
+}
+
 function showStats(s) {
   if (s) metricsVisible = true;
   $("metrics-panel").hidden = !metricsVisible;
-  $("st-time").textContent = s ? `${Number(s.search_time_ms).toFixed(4)} ms` : "-";
+  $("st-time").textContent = s
+    ? `${Number(s.search_time_ms).toFixed(4)} ms`
+    : "-";
   $("st-nodes").textContent = s ? s.expanded_nodes.toLocaleString() : "-";
   $("st-mem").textContent = s ? `${s.peak_memory_kb} KB` : "-";
   $("st-len").textContent =
@@ -796,6 +806,8 @@ function showStats(s) {
 
 async function solve(algo, label) {
   if (busy || replaying) return;
+  runningSolver = algo;
+  updateSolverButtonState();
   replaying = true;
   stopRequested = false;
   activeSolveId = crypto.randomUUID();
@@ -850,6 +862,8 @@ async function solve(algo, label) {
   } finally {
     activeSolveId = null;
     solveAbortController = null;
+    runningSolver = null;
+    updateSolverButtonState();
     $("btn-solve-stop").hidden = true;
     $("level-select").disabled = false;
     if ($("dropdown-trigger")) $("dropdown-trigger").disabled = false;
@@ -939,7 +953,9 @@ function openDropdown() {
 
   if (level) {
     const listContainer = $("dropdown-level-list");
-    const activeEl = listContainer?.querySelector(`.dropdown-item[data-id="${level.id}"]`);
+    const activeEl = listContainer?.querySelector(
+      `.dropdown-item[data-id="${level.id}"]`,
+    );
     if (activeEl) {
       activeEl.scrollIntoView({ block: "nearest" });
     }
