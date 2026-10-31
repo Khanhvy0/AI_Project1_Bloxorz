@@ -172,5 +172,42 @@ def get_successors(level: Level, state: State) -> List[Tuple[Direction, State]]:
 
 
 def cost(level: Level, state: State, direction: Direction, next_state: State) -> float:
-    """Chi phí 1 nước đi. Tạm = 1; TV3 sẽ thay bằng hàm chi phí cho UCS."""
-    return 1
+    """Hàm chi phí UCS được thiết kế không đồng nhất nhằm phản ánh tính chất vật lý và mức độ rủi ro."""
+    
+    # Thao tác chuyển đổi quyền điều khiển (lúc khối bị tách) tính là hành động bình thường
+    if direction == Direction.SWITCH:
+        return 1.0
+
+    # Trạng thái trước đó nguyên khối nhưng trạng thái tiếp theo bị tách (split),
+    # hành động a vừa kích hoạt công tắc chia tách (Split Switch)
+    if state.split is None and next_state.split is not None:
+        return 0.5
+
+    # Xác định các ô (cells) ở trạng thái s'
+    if next_state.split is not None:
+        cells = next_state.split
+    else:
+        cells = next_state.cells()
+
+    # Công tắc nặng
+    is_standing = (next_state.orient == Orient.STAND and next_state.split is None)
+    is_switch_activated = False
+
+    # Duyệt qua các ô ở trạng thái s'
+    for cell in cells:
+        tile = level.tile_at(cell)
+        
+        # s' chiếm giữ ô dễ vỡ (Fragile)
+        if tile == Tile.FRAGILE:
+            return 2.0
+            
+        # kích hoạt công tắc (Switch mềm hoặc Switch nặng)
+        if tile == Tile.SOFT or (tile == Tile.HEAVY and is_standing):
+            is_switch_activated = True
+
+    # bất kỳ công tắc nào được kích hoạt
+    if is_switch_activated:
+        return 0.5
+        
+    # Trả về 1.0 trong các trường hợp di chuyển bình thường còn lại
+    return 1.0
