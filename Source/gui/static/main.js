@@ -440,7 +440,7 @@ function buildBoard(level) {
   );
   const halfFov = Math.min(verticalHalfFov, horizontalHalfFov);
   const boardRadius = Math.hypot(cols / 2, rows / 2, 1);
-  const distance = (boardRadius / Math.sin(halfFov)) * 1.15;
+  const distance = (boardRadius / Math.sin(halfFov)) * 0.9;
   const target = controls.target;
   camera.position.set(
     target.x + (distance * 0.37) / boardZoom,
@@ -673,7 +673,8 @@ let level = null,
   levels = [],
   busy = false,
   replaying = false,
-  moves = 0;
+  moves = 0,
+  runningSolver = null;
 let metricsVisible = false;
 let solveAbortController = null,
   activeSolveId = null,
@@ -718,8 +719,7 @@ function askAfterSolve() {
 async function announceResult(status) {
   const announcement = $("game-announcement");
   announcement.className = `game-announcement ${status}`;
-  announcement.textContent =
-    status === "won" ? "Harmony Achieved!" : "Monument Crumbled";
+  announcement.textContent = status === "won" ? "You Win!" : "You Fell!";
   announcement.hidden = false;
   await sleep(2000);
   announcement.hidden = true;
@@ -735,6 +735,7 @@ async function loadLevel(id, { showMetrics = false } = {}) {
   renderState();
   setMsg("");
   showStats(null);
+  syncCustomDropdown(id);
 }
 
 async function advanceLevel() {
@@ -757,9 +758,10 @@ async function act(action, ms = ROLL_MS) {
       state,
       action,
     });
-    if (action !== "swap") await rollBlock(state.active, action, ms);
+    if (action !== "swap" && action !== "switch")
+      await rollBlock(state.active, action, ms);
     state = next;
-    moves += 1;
+    if (action !== "swap") moves += 1;
     renderState();
     if (next.status === "lost") {
       await Promise.all([
@@ -783,10 +785,19 @@ async function act(action, ms = ROLL_MS) {
   }
 }
 
+function updateSolverButtonState() {
+  document.querySelectorAll(".solvers button").forEach((button) => {
+    const isRunning = button.dataset.algo === runningSolver;
+    button.classList.toggle("solver-running", isRunning);
+  });
+}
+
 function showStats(s) {
   if (s) metricsVisible = true;
   $("metrics-panel").hidden = !metricsVisible;
-  $("st-time").textContent = s ? `${s.search_time_ms} ms` : "-";
+  $("st-time").textContent = s
+    ? `${Number(s.search_time_ms).toFixed(4)} ms`
+    : "-";
   $("st-nodes").textContent = s ? s.expanded_nodes.toLocaleString() : "-";
   $("st-mem").textContent = s ? `${s.peak_memory_kb} KB` : "-";
   $("st-len").textContent =
@@ -795,12 +806,15 @@ function showStats(s) {
 
 async function solve(algo, label) {
   if (busy || replaying) return;
+  runningSolver = algo;
+  updateSolverButtonState();
   replaying = true;
   stopRequested = false;
   activeSolveId = crypto.randomUUID();
   solveAbortController = new AbortController();
   $("btn-solve-stop").hidden = false;
   $("level-select").disabled = true;
+  if ($("dropdown-trigger")) $("dropdown-trigger").disabled = true;
   setDisabled(true);
   try {
     await loadLevel(level.id, { showMetrics: true });
@@ -848,8 +862,11 @@ async function solve(algo, label) {
   } finally {
     activeSolveId = null;
     solveAbortController = null;
+    runningSolver = null;
+    updateSolverButtonState();
     $("btn-solve-stop").hidden = true;
     $("level-select").disabled = false;
+    if ($("dropdown-trigger")) $("dropdown-trigger").disabled = false;
     replaying = false;
     setDisabled(false);
   }
@@ -919,11 +936,117 @@ $("level-select").addEventListener(
   (e) => !replaying && loadLevel(e.target.value),
 );
 
+/* ---------- Custom Level Dropdown (10 levels visible, scroll to see all) ---------- */
+function closeDropdown() {
+  const menu = $("dropdown-menu");
+  const trigger = $("dropdown-trigger");
+  if (menu) menu.hidden = true;
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
+}
+
+function openDropdown() {
+  if (replaying) return;
+  const menu = $("dropdown-menu");
+  const trigger = $("dropdown-trigger");
+  if (menu) menu.hidden = false;
+  if (trigger) trigger.setAttribute("aria-expanded", "true");
+
+  if (level) {
+    const listContainer = $("dropdown-level-list");
+    const activeEl = listContainer?.querySelector(
+      `.dropdown-item[data-id="${level.id}"]`,
+    );
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: "nearest" });
+    }
+  }
+}
+
+function toggleDropdown() {
+  const menu = $("dropdown-menu");
+  if (!menu || menu.hidden) {
+    openDropdown();
+  } else {
+    closeDropdown();
+  }
+}
+
+function renderCustomDropdown() {
+  if (!levels || levels.length === 0) return;
+  const listContainer = $("dropdown-level-list");
+  if (!listContainer) return;
+
+  listContainer.innerHTML = levels
+    .map((l) => {
+      const isActive = level && l.id === level.id;
+      return `<div class="dropdown-item ${isActive ? "active" : ""}" data-id="${l.id}">${l.name}</div>`;
+    })
+    .join("");
+
+  listContainer.querySelectorAll(".dropdown-item").forEach((item) => {
+    item.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (replaying) return;
+      const id = item.dataset.id;
+      closeDropdown();
+      $("level-select").value = id;
+      await loadLevel(id);
+    });
+  });
+}
+
+function syncCustomDropdown(levelId) {
+  if (!levels || levels.length === 0) return;
+  const idx = levels.findIndex((l) => l.id === levelId);
+  if (idx >= 0) {
+    const triggerLabel = $("dropdown-current-level");
+    if (triggerLabel) {
+      triggerLabel.textContent = levels[idx].name;
+    }
+    const listContainer = $("dropdown-level-list");
+    if (listContainer) {
+      listContainer.querySelectorAll(".dropdown-item").forEach((item) => {
+        const isActive = item.dataset.id === levelId;
+        item.classList.toggle("active", isActive);
+        if (isActive) {
+          item.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
+  }
+}
+
+function initCustomDropdown() {
+  renderCustomDropdown();
+
+  const trigger = $("dropdown-trigger");
+  if (trigger) {
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleDropdown();
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const wrap = $("custom-level-dropdown");
+    if (wrap && !wrap.contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeDropdown();
+    }
+  });
+}
+
 (async function init() {
   resize();
   levels = await api("/api/levels");
   $("level-select").innerHTML = levels
     .map((l) => `<option value="${l.id}">${l.name}</option>`)
     .join("");
+  initCustomDropdown();
   await loadLevel(levels[0].id);
 })();

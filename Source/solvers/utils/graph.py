@@ -76,9 +76,10 @@ class MazeGraph:
                 for t_id in sw.get("targets", [])
                 if t_id in self.bridge_id_to_idx
             ]
+            mode = sw.get("mode", "toggle")
             sw_parsed = {
                 "type": sw["type"].lower(),       # "soft" hoặc "heavy"
-                "mode": sw["mode"].lower(),       # "open", "close", "toggle", "permanent"
+                "mode": mode.lower() if isinstance(mode, str) else "toggle",
                 "target_indices": target_indices, # Danh sách index của cầu trong bridge_states
             }
             self.switches.setdefault(pos, []).append(sw_parsed)

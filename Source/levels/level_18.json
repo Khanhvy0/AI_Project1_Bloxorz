@@ -1,49 +1,219 @@
 {
   "name": "level_18",
   "grid": [
-    "S..F.o..",
-    "........",
-    ".F==F...",
-    "........",
-    ".....x.G"
+    "#####..o...####",
+    "#####......=###",
+    "...##o..o.....#",
+    ".S.==....oo..o#",
+    "#####..o..o...#",
+    "#####......o..#",
+    "...##......o...",
+    ".G.==.o.##...ox",
+    "...##...###....",
+    "...#########..."
   ],
   "bridges": {
     "b1": {
       "cells": [
         [
-          2,
-          2
-        ],
-        [
-          2,
-          3
+          1,
+          11
         ]
       ],
       "open": false
+    },
+    "b2": {
+      "cells": [
+        [
+          3,
+          3
+        ]
+      ],
+      "open": true
+    },
+    "b3": {
+      "cells": [
+        [
+          3,
+          4
+        ]
+      ],
+      "open": true
+    },
+    "b4": {
+      "cells": [
+        [
+          7,
+          3
+        ]
+      ],
+      "open": true
+    },
+    "b5": {
+      "cells": [
+        [
+          7,
+          4
+        ]
+      ],
+      "open": true
     }
   },
   "switches": [
     {
       "pos": [
+        7,
+        14
+      ],
+      "type": "heavy",
+      "mode": "open",
+      "targets": [
+        "b1"
+      ]
+    },
+    {
+      "pos": [
         0,
+        7
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        2,
         5
       ],
       "type": "soft",
+      "mode": "close",
       "targets": [
-        "b1"
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        2,
+        8
       ],
-      "mode": "toggle"
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        3,
+        9
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        3,
+        10
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
     },
     {
       "pos": [
         4,
-        5
+        10
       ],
-      "type": "heavy",
+      "type": "soft",
+      "mode": "close",
       "targets": [
-        "b1"
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        5,
+        11
       ],
-      "mode": "toggle"
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        3,
+        13
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        6,
+        11
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        7,
+        13
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        4,
+        7
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
+    },
+    {
+      "pos": [
+        7,
+        6
+      ],
+      "type": "soft",
+      "mode": "close",
+      "targets": [
+        "b4",
+        "b5"
+      ]
     }
   ]
 }

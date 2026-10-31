@@ -39,7 +39,7 @@ class GuiEngineAdapterTests(unittest.TestCase):
     def test_levels_are_listed_in_numbered_order(self):
         self.assertEqual(
             [item["id"] for item in engine_adapter.list_levels()],
-            [f"level_{number:02}" for number in range(1, 21)],
+            [f"level_{number:02}" for number in range(1, 27)],
         )
 
     def test_all_solver_solutions_replay_through_rules_engine(self):

@@ -1,0 +1,95 @@
+[
+  {
+    "level": 1,
+    "source_stage": 1
+  },
+  {
+    "level": 2,
+    "source_stage": 2
+  },
+  {
+    "level": 3,
+    "source_stage": 3
+  },
+  {
+    "level": 4,
+    "source_stage": 4
+  },
+  {
+    "level": 5,
+    "source_stage": 5
+  },
+  {
+    "level": 6,
+    "source_stage": 6
+  },
+  {
+    "level": 7,
+    "source_stage": 7
+  },
+  {
+    "level": 8,
+    "source_stage": 11
+  },
+  {
+    "level": 9,
+    "source_stage": 12
+  },
+  {
+    "level": 10,
+    "source_stage": 13
+  },
+  {
+    "level": 11,
+    "source_stage": 14
+  },
+  {
+    "level": 12,
+    "source_stage": 18
+  },
+  {
+    "level": 13,
+    "source_stage": 19
+  },
+  {
+    "level": 14,
+    "source_stage": 21
+  },
+  {
+    "level": 15,
+    "source_stage": 22
+  },
+  {
+    "level": 16,
+    "source_stage": 27
+  },
+  {
+    "level": 17,
+    "source_stage": 32
+  },
+  {
+    "level": 18,
+    "source_stage": 33
+  },
+  {
+    "level": 19,
+    "source_stage": 17,
+    "toggle_switches": [
+      "129"
+    ]
+  },
+  {
+    "level": 20,
+    "source_stage": 31,
+    "toggle_switches": [
+      "28"
+    ]
+  },
+  {
+    "level": 21,
+    "source_stage": 30,
+    "toggle_switches": [
+      "142"
+    ]
+  }
+]

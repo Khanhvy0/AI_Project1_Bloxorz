@@ -59,18 +59,14 @@
           aria-labelledby="solve-prompt-title"
           hidden
         >
-          <span class="modal-eyebrow">HARMONY RESTORED</span>
-          <h2 id="solve-prompt-title">Path Completed</h2>
-          <p>
-            The monument has reached its equilibrium. Where would you like to
-            journey next?
-          </p>
+          <span class="modal-eyebrow">SOLVED</span>
+          <h2 id="solve-prompt-title">Level Complete!</h2>
           <div class="solve-prompt-actions">
             <button id="btn-solve-next" class="solve-prompt-action primary">
-              Continue to Next Chapter
+              Next Level
             </button>
             <button id="btn-solve-replay" class="solve-prompt-action">
-              Observe This Level Again
+              Play Again
             </button>
           </div>
         </section>
@@ -81,7 +77,22 @@
           <div class="level-header-row">
             <div class="level-select-wrap">
               <label for="level-select">Chapter Selection</label>
-              <select id="level-select"></select>
+              <select id="level-select" class="visually-hidden"></select>
+              <div class="custom-dropdown" id="custom-level-dropdown">
+                <button
+                  type="button"
+                  class="dropdown-trigger"
+                  id="dropdown-trigger"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                >
+                  <span class="trigger-label" id="dropdown-current-level">Level 01</span>
+                  <span class="trigger-icon" aria-hidden="true">▾</span>
+                </button>
+                <div class="dropdown-menu" id="dropdown-menu" role="listbox" hidden>
+                  <div class="dropdown-list" id="dropdown-level-list"></div>
+                </div>
+              </div>
             </div>
             <div
               class="board-zoom-controls"

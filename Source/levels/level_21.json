@@ -1,0 +1,101 @@
+{
+  "name": "level_21",
+  "grid": [
+    "###.....FF....#",
+    "###.G..#####F.#",
+    "###...######F.x",
+    "#######F..==...",
+    "##S####FF#####.",
+    "#x.F###FF#####.",
+    "FFFF###..=##=..",
+    "FFF.F.FF.F##x.=",
+    ".FFFFFFFFFFF.##",
+    "#F.FFF##FFFF.##"
+  ],
+  "bridges": {
+    "b1": {
+      "cells": [
+        [
+          3,
+          10
+        ]
+      ],
+      "open": true
+    },
+    "b2": {
+      "cells": [
+        [
+          3,
+          11
+        ]
+      ],
+      "open": true
+    },
+    "b3": {
+      "cells": [
+        [
+          6,
+          9
+        ]
+      ],
+      "open": false
+    },
+    "b4": {
+      "cells": [
+        [
+          6,
+          12
+        ]
+      ],
+      "open": false
+    },
+    "b5": {
+      "cells": [
+        [
+          7,
+          14
+        ]
+      ],
+      "open": false
+    }
+  },
+  "switches": [
+    {
+      "pos": [
+        5,
+        1
+      ],
+      "type": "heavy",
+      "mode": "open",
+      "targets": [
+        "b1",
+        "b2"
+      ]
+    },
+    {
+      "pos": [
+        2,
+        14
+      ],
+      "type": "heavy",
+      "mode": "toggle",
+      "targets": [
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
+    },
+    {
+      "pos": [
+        7,
+        12
+      ],
+      "type": "heavy",
+      "mode": "toggle",
+      "targets": [
+        "b5"
+      ]
+    }
+  ]
+}

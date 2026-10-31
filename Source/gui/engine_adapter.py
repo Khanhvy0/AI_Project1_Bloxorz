@@ -59,8 +59,10 @@ DIRECTIONS = {
     "down": Direction.DOWN,
     "left": Direction.LEFT,
     "right": Direction.RIGHT,
+    "switch": Direction.SWITCH,  # dùng khi solver replay qua màn có split
+    "swap": Direction.SWITCH,    # phím cách từ GUI người chơi
 }
-LEVEL_ORDER = [f"level_{number:02}" for number in range(1, 21)]
+LEVEL_ORDER = [f"level_{n:02d}" for n in range(1, 27)]
 GUI_TILES = {
     Tile.VOID: ".",
     Tile.FLOOR: "o",
@@ -107,7 +109,6 @@ def _to_gui_level(level_id: str, level: Level) -> dict:
 
 def list_levels() -> list[dict[str, str]]:
     ordered_ids = [level_id for level_id in LEVEL_ORDER if level_id in LEVELS]
-    ordered_ids.extend(sorted(set(LEVELS) - set(ordered_ids)))
     return [
         {"id": level_id, "name": LEVELS[level_id].name, "group": "basic"}
         for level_id in ordered_ids
@@ -119,17 +120,36 @@ def get_level(level_id: str) -> dict:
 
 
 def _to_gui_state(level: Level, state: State, status: str) -> dict:
+    if state.is_split:
+        # Hai khối nhỏ riêng biệt, mỗi khối là 1 danh sách 1 ô
+        cell_a, cell_b = state.split
+        blocks = [[list(cell_a)], [list(cell_b)]]
+    else:
+        blocks = [[list(cell) for cell in state.cells()]]
     return {
-        "blocks": [[list(cell) for cell in state.cells()]],
-        "active": 0,
+        "blocks": blocks,
+        "active": state.active,
         "bridges": _bridge_map(level, state.bridges),
         "status": status,
     }
 
 
 def _from_gui_state(level: Level, state: dict) -> State:
-    if len(state["blocks"]) != 1:
-        raise NotImplementedError("Split block states are not implemented in the rules engine")
+    bridges = sum(
+        1 << index
+        for index, bridge_id in enumerate(level.bridge_ids)
+        if state["bridges"].get(bridge_id, False)
+    )
+
+    if len(state["blocks"]) == 2:
+        # Trạng thái tách khối: mỗi block có đúng 1 ô
+        cell_a = tuple(state["blocks"][0][0])
+        cell_b = tuple(state["blocks"][1][0])
+        active_index = state.get("active", 0)
+        active_cell = cell_a if active_index == 0 else cell_b
+        return State.make_split(cell_a, cell_b, active_cell, bridges)
+
+    # Khối thường: 1 block với 1 hoặc 2 ô
     cells = tuple(sorted(tuple(cell) for cell in state["blocks"][0]))
     if len(cells) == 1:
         r, c = cells[0]
@@ -142,12 +162,6 @@ def _from_gui_state(level: Level, state: dict) -> State:
         orient = Orient.VERT
     else:
         raise ValueError(f"Invalid block cells in GUI state: {cells!r}")
-
-    bridges = sum(
-        1 << index
-        for index, bridge_id in enumerate(level.bridge_ids)
-        if state["bridges"].get(bridge_id, False)
-    )
     return State(r, c, orient, bridges)
 
 
@@ -157,7 +171,7 @@ def initial_state(level: dict) -> dict:
 
 
 def apply_move(level: dict, state: dict, action: str) -> dict:
-    if state["status"] != "playing" or action == "swap":
+    if state["status"] != "playing":
         return state
     direction = DIRECTIONS[action]
     rules_level = LEVELS[level["id"]]
@@ -166,6 +180,9 @@ def apply_move(level: dict, state: dict, action: str) -> dict:
     if result.legal:
         next_state = result.state
         status = "won" if result.status == MoveStatus.WIN else "playing"
+    elif direction == Direction.SWITCH:
+        # SWITCH bị BLOCKED (chưa tách khối) → giữ nguyên state, không thua
+        return state
     else:
         orient, dr, dc = TRANSITIONS[(current.orient, direction)]
         next_state = State(current.r + dr, current.c + dc, orient, current.bridges)

@@ -1,0 +1,36 @@
+{
+  "name": "g3_01",
+  "grid": [
+    "S..o..",
+    "......",
+    "=..=.G"
+  ],
+  "bridges": {
+    "b1": {
+      "cells": [
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "open": false
+    }
+  },
+  "switches": [
+    {
+      "pos": [
+        0,
+        3
+      ],
+      "type": "soft",
+      "targets": [
+        "b1"
+      ],
+      "mode": "toggle"
+    }
+  ]
+}
