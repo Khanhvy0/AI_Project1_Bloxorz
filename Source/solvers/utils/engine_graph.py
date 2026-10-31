@@ -1,4 +1,4 @@
-"""Adapter Graph cho engine TV1, giữ nguyên State gồm bridges/split/active."""
+"""Adapter Graph cho engine, giữ nguyên State gồm bridges/split/active."""
 
 from game import engine
 from game.state import Direction
@@ -13,10 +13,10 @@ DIRECTION_TO_ACTION = {direction: action for action, direction in ACTION_TO_DIRE
 
 
 class EngineGraph:
-    """Cùng API start_state/is_goal/get_neighbors với MazeGraph của TV3.
+    """Cùng API start_state/is_goal/get_neighbors với MazeGraph.
 
-    Dùng adapter này khi chạy chung với game/GUI; mọi luật và cost lấy từ TV1.
-    MazeGraph vẫn dùng được độc lập với luật và cost riêng của TV3.
+    Dùng adapter này khi chạy chung với game/GUI; mọi luật và cost được lấy từ bên ngoài.
+    MazeGraph vẫn dùng được độc lập với luật và cost riêng.
     """
 
     def __init__(self, level):

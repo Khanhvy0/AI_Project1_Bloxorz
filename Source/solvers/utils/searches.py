@@ -1,11 +1,8 @@
 # Mã nguồn này không được sử dụng trực tiếp bởi nguời dùng mà chỉ dành cho thuật toán chạy ở giữa
 import heapq
+from array import array
 from collections import deque
-from solvers.utils.graph import MazeGraph, StateType, STANDING
-
-
-
-
+from solvers.utils.graph import MazeGraph, StateType, STANDING, HORIZONTAL
 
 def ln_norm(sour_rc: tuple[int, int], dest_rc: tuple[int, int], n: int) -> float:
     if n <= 0:
@@ -16,39 +13,78 @@ def ln_norm(sour_rc: tuple[int, int], dest_rc: tuple[int, int], n: int) -> float
 
 
 def _pose(state):
-    """Đọc cả State của TV1 và tuple state của MazeGraph TV3."""
+    """Đọc cả State và tuple state của MazeGraph."""
     if hasattr(state, "r"):
         return state.r, state.c, state.orient
     return state[:3]
 
 
-def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
-    """Manhattan / 2: mỗi nước dời ô neo nhiều nhất 2 ô, với cost tối thiểu 1."""
-    if hasattr(state, "is_split") and state.is_split:
-        c1, c2 = state.split
-        d1 = ln_norm(c1, goal_rc, 1)
-        d2 = ln_norm(c2, goal_rc, 1)
-        return max(d1, d2) / 2.0
-    r, c, _ = _pose(state)
-    # Không cộng phạt nằm: H(0,1) -> goal(0,3) chỉ tốn 1 bước.
-    return ln_norm((r, c), goal_rc, 1) / 2.0
-
+def chebyshev_orientation_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
+    """
+    Tightly bounds Bloxorz movement by calculating independent row and column steps.
+    No zip() or float powers are used, making it millions of operations faster.
+    """
+    r, c, orient = _pose(state)
+    
+    # Tìm toàn bộ vị trí hiện tại hình hộp chữ nhật đang sử dụng
+    if orient == STANDING: # 0
+        cells = [(r, c)]
+    elif orient == HORIZONTAL: # 1
+        cells = [(r, c), (r, c + 1)]
+    else: # VERTICAL (2)
+        cells = [(r, c), (r + 1, c)]
+        
+    min_h = float('inf')
+    
+    # tìm đường đi ngắn nhất đến với Goal
+    for cr, cc in cells:
+        dr = abs(cr - goal_rc[0])
+        dc = abs(cc - goal_rc[1])
+        
+        h_r = (2 * dr + 1) // 3
+        h_c = (2 * dc + 1) // 3
+        
+        min_h = min(min_h, h_r + h_c)
+        
+    return float(min_h)
 
 def l2_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
+    """Manhattan / 2: mỗi nước dời ô neo nhiều nhất 2 ô, với cost tối thiểu 1."""
+    r, c = (state.r, state.c) if hasattr(state, "r") else (state[0], state[1])
+    dr = r - goal_rc[0]
+    dc = c - goal_rc[1]
+    return ((dr * dr + dc * dc) ** 0.5) * 0.5
+
+
+def l1_heuristic(state: StateType, goal_rc: tuple[int, int]) -> float:
     """Khoảng cách Euclid chia 2."""
-    if hasattr(state, "is_split") and state.is_split:
-        c1, c2 = state.split
-        d1 = ln_norm(c1, goal_rc, 2)
-        d2 = ln_norm(c2, goal_rc, 2)
-        return max(d1, d2) / 2.0
-    r, c, _ = _pose(state)
+    r, c = (state.r, state.c) if hasattr(state, "r") else (state[0], state[1])
+    return (abs(r - goal_rc[0]) + abs(c - goal_rc[1])) * 0.5
 
-    return ln_norm((r, c), goal_rc, 2) / 2.0
 
+def build_pose_heuristic(graph):
+    R, C = graph.rows, graph.cols
+    all_open = (True,) * len(graph.bridge_ids)
+    dist = array("i", [-1]) * (3 * R * C)   # 4 bytes per pose
+    gr, gc = graph.goal_pos
+    dist[(gr * C + gc) * 3] = 0
+    q = deque([(gr, gc, STANDING)])
+    while q:
+        r, c, o = q.popleft()
+        d = dist[(r * C + c) * 3 + o]
+        for _, nr, nc, no in graph._candidates(r, c, o):
+            if not graph.is_valid_state((nr, nc, no, all_open)):
+                continue
+            i = (nr * C + nc) * 3 + no
+            if dist[i] < 0:
+                dist[i] = d + 1
+                q.append((nr, nc, no))
+    return dist, C
 
 heuristic_dict = {
     "l1": l1_heuristic,
     "l2": l2_heuristic,
+    "chebyshev": chebyshev_orientation_heuristic
 }
 
 def reconstruct_actions(
@@ -67,7 +103,7 @@ def reconstruct_actions(
 
 
 def a_star_search(
-    graph: MazeGraph, heuristic: str="l2"
+    graph: MazeGraph, heuristic: str="l1"
 ) -> tuple[list[str], int]:
     """Thuật toán tìm đường A*  
 
@@ -79,15 +115,20 @@ def a_star_search(
         - Danh sách Vị trí các điểm Node tuần tự trên đường đi.
         Nếu không tồn tại đường đi thì trả về danh sách trống.
         - Số đỉnh được mở
-
     """
     start = graph.start_state
     goal_rc = graph.goal_pos
-    h_func = heuristic_dict[heuristic]
+    if heuristic == "pose":
+        dist, C = build_pose_heuristic(graph)
+        def h_func(s, _goal):
+            d = dist[(s[0] * C + s[1]) * 3 + s[2]]
+            return float("inf") if d < 0 else float(d)
+    else:
+        h_func = heuristic_dict[heuristic]
 
     # Counter phụ `tie_breaker` giúp heapq không bị lỗi khi 2 state có cùng f_score
     tie_breaker = 0
-    open_set = [(h_func(start, goal_rc), 0.0, tie_breaker, start)]
+    open_set = [(h_func(start, goal_rc), 0.0, start)]
     came_from: dict[StateType, tuple[StateType | None, str | None]] = {
         start: (None, None)
     }
@@ -95,7 +136,8 @@ def a_star_search(
     expanded_nodes = 0
 
     while open_set:
-        _, current_g, _, current = heapq.heappop(open_set)
+        f, neg_g, current = heapq.heappop(open_set)
+        current_g = -neg_g
 
         # Bỏ qua nếu đây là bản ghi cũ trong Priority Queue có chi phí tệ hơn
         if current_g > g_score.get(current, float("inf")):
@@ -107,13 +149,16 @@ def a_star_search(
         expanded_nodes += 1
         for action, neighbor, step_cost in graph.get_neighbors(current):
             tentative_g = current_g + step_cost
-            # Tính toán chi phí từ các đỉnh lân cận đến đích( heuristic)
             if tentative_g < g_score.get(neighbor, float("inf")):
                 came_from[neighbor] = (current, action)
                 g_score[neighbor] = tentative_g
-                f_score = tentative_g + h_func(neighbor, goal_rc)
+                h = h_func(neighbor, goal_rc)
+
+                if h == float("inf"):
+                    continue
+                f_score = tentative_g + h
                 tie_breaker += 1
-                heapq.heappush(open_set, (f_score, tentative_g, tie_breaker, neighbor))
+                heapq.heappush(open_set, (f_score, -tentative_g, neighbor))
     # Không có đường đi
     return [], expanded_nodes
 
