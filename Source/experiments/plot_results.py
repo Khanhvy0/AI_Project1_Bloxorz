@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# 1. Đọc dữ liệu từ file CSV mà bạn vừa tạo
+# 1. Đọc dữ liệu từ file CSV 
 df = pd.read_csv('results.csv')
 
 # 2. Thiết lập kiểu dáng biểu đồ
