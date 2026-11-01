@@ -1,4 +1,3 @@
-"""Split switch: dịch chuyển + tách, điều khiển từng khối, ghép lại."""
 import unittest
 from game import (Level, State, Orient, Direction, MoveStatus, apply_move, get_successors,
                   is_goal, initial_state)

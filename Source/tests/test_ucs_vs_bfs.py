@@ -1,5 +1,3 @@
-"""Bằng chứng cho báo cáo: với hàm chi phí đã chốt, UCS/A* có thể chọn đường DÀI HƠN về số bước
-nhưng RẺ HƠN về chi phí so với BFS (tránh ô fragile). Màn: tests/fixtures/fragile_detour.json."""
 import os
 import unittest
 
@@ -41,3 +39,5 @@ class UcsVersusBfs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

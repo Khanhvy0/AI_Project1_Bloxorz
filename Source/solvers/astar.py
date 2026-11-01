@@ -1,5 +1,5 @@
 from functools import partial
-from solvers.utils.sovler import SolverBaseModel, SolverResult, solve_level_raw
+from solvers.utils.solver import SolverBaseModel, SolverResult, solve_level_raw
 from solvers.utils.searches import a_star_search
 from utils.measure import measured_solver
 

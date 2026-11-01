@@ -1,9 +1,8 @@
-from solvers.utils.sovler import SolverBaseModel, SolverResult, solve_level_raw
+from solvers.utils.solver import SolverBaseModel, SolverResult, solve_level_raw
 from solvers.utils.searches import ucs_search
 from utils.measure import measured_solver
 
 
-# Lưu ý: tên class là UCSovler không phải là UCSSolver( chỉ có 1 chữ S, convention:))
 class UCSovler(SolverBaseModel):
     """Class giải tìm đường đi từ đồ thị được cung cấp bằng **thuật toán UCS( uniform cost search)**
 
