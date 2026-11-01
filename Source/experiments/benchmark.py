@@ -18,10 +18,12 @@ from solvers.ucs import UCSovler
 from solvers.dfs import IDSSovler
 from solvers.astar import AStarSovler
  
-
+# Nhóm dùng IDS thay cho DFS (đề cho phép, cần nêu rõ trong báo cáo).
+# "A*" là A* dùng Pose Heuristic. Tên bắt đầu bằng "A*" được kiểm tra
+# tính tối ưu so với UCS.
 ALGORITHMS = [
     ("BFS", BFSSovler),
-    ("DFS", IDSSovler),
+    ("IDS", IDSSovler),
     ("UCS", UCSovler),
     ("A*", partial(AStarSovler, heuristic="pose")),
 ]
@@ -29,7 +31,8 @@ ALGORITHMS = [
 REFERENCE_ALGORITHM = "UCS"
 COST_TOLERANCE = 1e-9
  
-REPEATS = 5
+REPEATS = 5                  # số lần chạy mỗi thuật toán, lấy trung vị thời gian
+SLOW_REPEATS = {"IDS": 1}    # IDS mở rất nhiều node nên chỉ đo 1 lần
 LEVEL_RANGE = (1, 26)
 LEVEL_PATTERN = re.compile(r"^level_(\d+)\.json$")
  
@@ -100,11 +103,11 @@ def select_levels():
     return selected
  
  
-def run_one(alg_factory, file_path):
-    """Chạy một thuật toán REPEATS lần trên một màn, trả về dòng kết quả (không có Level/Algorithm)."""
+def run_one(alg_factory, file_path, repeats=REPEATS):
+    """Chạy một thuật toán `repeats` lần trên một màn, trả về (stats, dòng kết quả)."""
     times = []
     items = None
-    for _ in range(REPEATS):
+    for _ in range(repeats):
         agent = alg_factory(graph=EngineGraph(load_level(file_path)))
         gc.collect()
  
@@ -177,7 +180,8 @@ def run_benchmark():
  
         for alg_name, alg_factory in ALGORITHMS:
             try:
-                items, row = run_one(alg_factory, file_path)
+                repeats = SLOW_REPEATS.get(alg_name, REPEATS)
+                items, row = run_one(alg_factory, file_path, repeats)
  
                 if not printed_keys:
                     print(f"    [DEBUG] stats keys: {list(items.keys())}")
