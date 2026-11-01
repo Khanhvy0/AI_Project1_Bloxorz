@@ -14,15 +14,14 @@ sys.path.append(BASE_DIR)
 from game.level import load_level
 from solvers.utils.engine_graph import EngineGraph
 from solvers.bfs import BFSSovler
-from solvers.dfs import DFSSovler
 from solvers.ucs import UCSovler
+from solvers.dfs import IDSSovler
 from solvers.astar import AStarSovler
  
-# "A*" là A* dùng Pose Heuristic (heuristic chính của báo cáo).
-# Tên bắt đầu bằng "A*" sẽ được kiểm tra tính tối ưu so với UCS.
+
 ALGORITHMS = [
     ("BFS", BFSSovler),
-    ("DFS", DFSSovler),
+    ("DFS", IDSSovler),
     ("UCS", UCSovler),
     ("A*", partial(AStarSovler, heuristic="pose")),
 ]
