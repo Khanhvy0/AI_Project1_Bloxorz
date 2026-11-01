@@ -5,6 +5,7 @@ import re
 import statistics
 import sys
 import time
+from functools import partial
 from glob import glob
  
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,12 +18,17 @@ from solvers.dfs import DFSSovler
 from solvers.ucs import UCSovler
 from solvers.astar import AStarSovler
  
+# "A*" là A* dùng Pose Heuristic (heuristic chính của báo cáo).
+# Tên bắt đầu bằng "A*" sẽ được kiểm tra tính tối ưu so với UCS.
 ALGORITHMS = [
     ("BFS", BFSSovler),
     ("DFS", DFSSovler),
     ("UCS", UCSovler),
-    ("A*", AStarSovler),
+    ("A*", partial(AStarSovler, heuristic="pose")),
 ]
+ 
+REFERENCE_ALGORITHM = "UCS"
+COST_TOLERANCE = 1e-9
  
 REPEATS = 5
 LEVEL_RANGE = (1, 26)
@@ -34,7 +40,7 @@ TIME_KEYS = ["time", "search_time", "time_s", "elapsed", "elapsed_time"]
 MEMORY_KEYS = ["memory", "memory_peak", "peak_memory", "memory_kb", "peak_memory_kb", "memory_usage"]
 NODE_KEYS = ["expanded_nodes", "nodes", "expanded"]
 PATH_KEYS = ["path", "actions", "moves"]
-COST_KEYS = ["cost", "total_cost", "path_cost"]
+COST_KEYS = ["cost", "total_cost", "path_cost", "solution_cost"]
  
  
 def stat_items(stats):
@@ -52,6 +58,17 @@ def read_stat(items, keys, default=None):
         if items.get(key) is not None:
             return items[key]
     return default
+ 
+ 
+def read_time(items, fallback):
+    """Ưu tiên thời gian solver tự báo (giây); nếu chỉ có ms thì đổi sang giây."""
+    value = read_stat(items, TIME_KEYS)
+    if value is not None:
+        return value
+    ms = items.get("search_time_ms")
+    if ms is not None:
+        return ms / 1000.0
+    return fallback
  
  
 def read_memory(items):
@@ -84,54 +101,108 @@ def select_levels():
     return selected
  
  
+def run_one(alg_factory, file_path):
+    """Chạy một thuật toán REPEATS lần trên một màn, trả về dòng kết quả (không có Level/Algorithm)."""
+    times = []
+    items = None
+    for _ in range(REPEATS):
+        agent = alg_factory(graph=EngineGraph(load_level(file_path)))
+        gc.collect()
+ 
+        start = time.perf_counter()
+        stats = agent.search() if hasattr(agent, "search") else agent.solve()
+        elapsed = time.perf_counter() - start
+ 
+        run_items = stat_items(stats)
+        times.append(read_time(run_items, elapsed))
+        if items is None:
+            items = run_items
+ 
+    solved = items.get("solved", True)
+    path = read_stat(items, PATH_KEYS, [])
+    return items, {
+        "Time (s)": round(statistics.median(times), 4),
+        "Memory (KB)": read_memory(items),
+        "Nodes": read_stat(items, NODE_KEYS, 0),
+        "Steps": len(path) if (solved and path) else -1,
+        "Cost": read_cost(items) if solved else "",
+    }
+ 
+ 
+def check_optimality(results):
+    """So cost của mọi biến thể A* với UCS trên từng màn.
+ 
+    Chỉ kết luận khi cả hai đều có cost số hợp lệ; nếu thiếu dữ liệu
+    (lỗi, không giải được) thì báo riêng, không coi là "trùng".
+    """
+    by_level = {}
+    for r in results:
+        by_level.setdefault(r["Level"], {})[r["Algorithm"]] = r["Cost"]
+ 
+    astar_names = [name for name, _ in ALGORITHMS if name.startswith("A*")]
+    compared = {name: 0 for name in astar_names}
+    mismatched = {name: [] for name in astar_names}
+    missing = {name: [] for name in astar_names}
+ 
+    for level, costs in sorted(by_level.items()):
+        ref = costs.get(REFERENCE_ALGORITHM)
+        for name in astar_names:
+            other = costs.get(name)
+            if not isinstance(ref, (int, float)) or not isinstance(other, (int, float)):
+                missing[name].append(level)
+                continue
+            compared[name] += 1
+            if abs(other - ref) > COST_TOLERANCE:
+                mismatched[name].append((level, other, ref))
+ 
+    print("\n[OPTIMALITY] So sánh cost với", REFERENCE_ALGORITHM)
+    for name in astar_names:
+        print(f"  {name}: so sánh được {compared[name]} màn, "
+              f"lệch {len(mismatched[name])}, thiếu dữ liệu {len(missing[name])}")
+        for level, other, ref in mismatched[name]:
+            print(f"    [WARNING] Level {level}: cost = {other} != {REFERENCE_ALGORITHM} cost = {ref}")
+        if missing[name]:
+            print(f"    [SKIP] Không có cost hợp lệ ở level: {missing[name]}")
+ 
+ 
 def run_benchmark():
     level_files = select_levels()
     print(f"[INFO] Found {len(level_files)} levels.\n")
  
     results = []
+    errors = {}          # (algorithm, message) -> [levels]
     printed_keys = False
  
     for level_number, file_path in level_files:
         print(f"[PROCESS] Level {level_number}")
  
-        for alg_name, alg_class in ALGORITHMS:
+        for alg_name, alg_factory in ALGORITHMS:
             try:
-                times = []
-                items = None
-                for _ in range(REPEATS):
-                    agent = alg_class(graph=EngineGraph(load_level(file_path)))
-                    gc.collect()
- 
-                    start = time.perf_counter()
-                    stats = agent.search() if hasattr(agent, "search") else agent.solve()
-                    elapsed = time.perf_counter() - start
- 
-                    run_items = stat_items(stats)
-                    times.append(read_stat(run_items, TIME_KEYS, elapsed))
-                    if items is None:
-                        items = run_items
+                items, row = run_one(alg_factory, file_path)
  
                 if not printed_keys:
                     print(f"    [DEBUG] stats keys: {list(items.keys())}")
                     printed_keys = True
  
-                path = read_stat(items, PATH_KEYS, [])
-                results.append({
-                    "Level": level_number,
-                    "Algorithm": alg_name,
-                    "Time (s)": round(statistics.median(times), 4),
-                    "Memory (KB)": read_memory(items),
-                    "Nodes": read_stat(items, NODE_KEYS, 0),
-                    "Steps": len(path) if path else -1,
-                    "Cost": read_cost(items),
-                })
+                results.append({"Level": level_number, "Algorithm": alg_name, **row})
             except Exception as e:
-                print(f"    [ERROR] {alg_name} on level {level_number}: {e}")
+                key = (alg_name, f"{type(e).__name__}: {e}")
+                if key not in errors:
+                    print(f"    [ERROR] {alg_name} on level {level_number}: {key[1]}")
+                errors.setdefault(key, []).append(level_number)
                 results.append({field: "Error" for field in FIELDS}
                                | {"Level": level_number, "Algorithm": alg_name})
  
     if all(r["Cost"] in ("", "Error") for r in results):
         print("[WARNING] Solvers did not return any cost value; Cost column is empty.")
+    else:
+        check_optimality(results)
+ 
+    if errors:
+        print("\n[SUMMARY] Các lỗi gặp phải (mỗi lỗi chỉ in một lần ở trên):")
+        for (alg, message), levels in errors.items():
+            print(f"  - {alg}: {message}")
+            print(f"    xảy ra ở {len(levels)} màn: {levels}")
  
     csv_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results.csv")
     with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
@@ -144,3 +215,4 @@ def run_benchmark():
  
 if __name__ == "__main__":
     run_benchmark()
+ 
