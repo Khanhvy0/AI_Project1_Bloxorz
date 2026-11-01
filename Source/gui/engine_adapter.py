@@ -18,7 +18,7 @@ from game import (
 )
 from solvers.astar import AStarSovler
 from solvers.bfs import BFSSovler
-from solvers.dfs import DFSSovler
+from solvers.dfs import DFSSovler, IDSSovler
 from solvers.ucs import UCSovler
 from solvers.utils.engine_graph import ACTION_TO_DIRECTION, EngineGraph
 
@@ -194,7 +194,7 @@ def solve(level: dict, algo: str, cancellation_event: Event | None = None) -> di
     rules_level = LEVELS[level["id"]]
     solvers = {
         "bfs": BFSSovler,
-        "dfs": DFSSovler,
+        "dfs": IDSSovler,
         "ucs": UCSovler,
         "astar": AStarSovler,
     }

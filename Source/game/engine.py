@@ -170,44 +170,34 @@ def get_successors(level: Level, state: State) -> List[Tuple[Direction, State]]:
             out.append((d, res.state))
     return out
 
+# Hàm chi phí (nhóm đã chốt). Dùng chung cho UCS, A*, test và báo cáo: CHỈ định nghĩa ở đây.
+COST_BASE = 1.0      # một bước bình thường (kể cả bước làm công tắc có hiệu lực, và Direction.SWITCH)
+COST_FRAGILE = 2.0   # bước mà khối sau khi đi chiếm ít nhất một ô fragile (rủi ro cao hơn)
+COST_BRIDGE = 1.5    # bước mà khối sau khi đi chiếm ít nhất một ô cầu
+MIN_STEP_COST = COST_BASE   # chi phí nhỏ nhất của một bước: heuristic A* dựa vào hằng này để admissible
+
 
 def cost(level: Level, state: State, direction: Direction, next_state: State) -> float:
-    """Hàm chi phí UCS được thiết kế không đồng nhất nhằm phản ánh tính chất vật lý và mức độ rủi ro."""
-    
-    # Thao tác chuyển đổi quyền điều khiển (lúc khối bị tách) tính là hành động bình thường
+    """
+    Chi phí 1 nước đi:
+    - SWITCH: 1.0
+    - Chiếm ít nhất một ô fragile: 2.0 (ưu tiên cao nhất)
+    - Chiếm ít nhất một ô cầu (và không có ô fragile): 1.5
+    - Các bước còn lại: 1.0
+    """
+
     if direction == Direction.SWITCH:
-        return 1.0
+            return COST_BASE
 
-    # Trạng thái trước đó nguyên khối nhưng trạng thái tiếp theo bị tách (split),
-    # hành động a vừa kích hoạt công tắc chia tách (Split Switch)
-    if state.split is None and next_state.split is not None:
-        return 0.5
-
-    # Xác định các ô (cells) ở trạng thái s'
-    if next_state.split is not None:
-        cells = next_state.split
-    else:
-        cells = next_state.cells()
-
-    # Công tắc nặng
-    is_standing = (next_state.orient == Orient.STAND and next_state.split is None)
-    is_switch_activated = False
-
-    # Duyệt qua các ô ở trạng thái s'
-    for cell in cells:
+    has_bridge = False
+    for cell in next_state.cells():
         tile = level.tile_at(cell)
-        
-        # s' chiếm giữ ô dễ vỡ (Fragile)
         if tile == Tile.FRAGILE:
-            return 2.0
-            
-        # kích hoạt công tắc (Switch mềm hoặc Switch nặng)
-        if tile == Tile.SOFT or (tile == Tile.HEAVY and is_standing):
-            is_switch_activated = True
+            return COST_FRAGILE  # Gặp fragile lập tức trả về 2.0 (mức phạt cao nhất)
+        if tile == Tile.BRIDGE:  # Cần kiểm tra đúng tên thuộc tính trong Tile enum của bạn
+            has_bridge = True
 
-    # bất kỳ công tắc nào được kích hoạt
-    if is_switch_activated:
-        return 0.5
-        
-    # Trả về 1.0 trong các trường hợp di chuyển bình thường còn lại
-    return 1.0
+    if has_bridge:
+        return COST_BRIDGE
+
+    return COST_BASE
