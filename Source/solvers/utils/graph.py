@@ -68,21 +68,26 @@ class MazeGraph:
 
         # 3. Chuẩn hóa "switches" từ list sang dict {(r, c): list_các_switch_tại_ô_đó}
         # để tra cứu O(1) mỗi khi khối gỗ lăn tới
-        self.switches: dict[tuple[int, int], list[dict]] = {}
+        self.switches = {}
+        self.split_switches = {}   # {(r, c): [(r1, c1), (r2, c2)]}
         for sw in level_data.get("switches", []):
             pos = tuple(sw["pos"])
+            sw_type = sw["type"].lower()
+
+            if sw_type == "split":
+                self.split_switches[pos] = [tuple(c) for c in sw.get("cubes", [])]
+                continue
+
             target_indices = [
                 self.bridge_id_to_idx[t_id]
                 for t_id in sw.get("targets", [])
                 if t_id in self.bridge_id_to_idx
             ]
-            mode = sw.get("mode", "toggle")
-            sw_parsed = {
-                "type": sw["type"].lower(),       # "soft" hoặc "heavy"
-                "mode": mode.lower() if isinstance(mode, str) else "toggle",
-                "target_indices": target_indices, # Danh sách index của cầu trong bridge_states
-            }
-            self.switches.setdefault(pos, []).append(sw_parsed)
+            self.switches.setdefault(pos, []).append({
+                "type": sw_type,
+                "mode": sw.get("mode", "toggle").lower(),
+                "target_indices": target_indices,
+            })
 
     def _open_cells(self, bridge_states):
         s = self._open_cache.get(bridge_states)

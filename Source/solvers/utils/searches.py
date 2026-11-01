@@ -204,6 +204,7 @@ def ucs_search(graph: MazeGraph) -> tuple[list[str], int]:
     return [], expanded_nodes
 
 
+
 def bfs_search(graph) -> tuple[list[str], int]:
     """BFS tối ưu số bước. parent vừa dựng path vừa chống lặp toàn bộ state."""
     start = graph.start_state

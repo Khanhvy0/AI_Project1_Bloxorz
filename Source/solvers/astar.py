@@ -21,4 +21,3 @@ class AStarSovler(SolverBaseModel):
         return super().solve()
 
 
-
