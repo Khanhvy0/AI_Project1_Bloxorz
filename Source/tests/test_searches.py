@@ -1,8 +1,7 @@
-# Đo lường, ước lượng thông tin liên quan tới thời gian thực thi,
-# dung lượng sử dụng của giải thuật A*
+# Đo lường, ước lượng thông tin liên quan tới thuật toán
 import json
-from solvers.utils.graph import MazeGraph
-from solvers.utils.sovler import SolverBaseModel
+from game.level import load_level
+from solvers.utils.solver import SolverBaseModel
 from solvers.ucs import UCSovler
 from solvers.astar import AStarSovler
 from solvers.bfs import BFSSovler
@@ -43,16 +42,9 @@ def run_test(solver:  SolverBaseModel, repeat: int=10):
     return avg_stats
 
 
-def load_json(filepath: str):
-    with open(filepath, mode='r') as f:
-        level_data = json.load(f)
-
-        return level_data
-
-
 def test(filepath: str, SolverClass, **kwargs):
-    level_data = load_json(filepath)
-    level = MazeGraph(level_data)
+    
+    level = load_level(filepath)
     if 'heuristic' in kwargs:
         solver = SolverClass(level, heuristic=kwargs['heuristic'])
     else:
@@ -63,14 +55,16 @@ def test(filepath: str, SolverClass, **kwargs):
 
 
 if __name__ == '__main__':
-    test('levels/generate/open_100x100.json', UCSovler)
-    test('levels/generate/maze_100x100.json', UCSovler)
-    test('levels/generate/open_500x500.json', UCSovler)
-    test('levels/generate/maze_500x500.json', UCSovler)
-    test('levels/generate/open_800x800.json', UCSovler)
-    test('levels/generate/maze_800x800.json', UCSovler)
-    test('levels/generate/open_800x800_no_route.json', UCSovler)
-    test('levels/generate/maze_1000x1000.json', UCSovler)
-    test('levels/generate/massive_void.json', UCSovler)
-    test('levels/generate/small_void_but_lot.json', UCSovler)
+    # test('levels/generate/open_100x100.json', UCSovler)
+    # test('levels/generate/maze_100x100.json', UCSovler)
+    # test('levels/generate/open_500x500.json', UCSovler)
+    # test('levels/generate/maze_500x500.json', UCSovler)
+    # test('levels/generate/open_800x800.json', UCSovler)
+    # test('levels/generate/maze_800x800.json', UCSovler)
+    # test('levels/generate/open_800x800_no_route.json', UCSovler)
+    # test('levels/generate/maze_1000x1000.json', UCSovler)
+    # test('levels/generate/massive_void.json', UCSovler)
+    # test('levels/generate/small_void_but_lot.json', UCSovler)
 
+    test('levels/generate/open_800x800.json', UCSovler)
+    test('levels/generate/open_800x800.json', AStarSovler)

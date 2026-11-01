@@ -57,6 +57,20 @@ TRANSITIONS: Dict[Tuple[Orient, Direction], Tuple[Orient, int, int]] = {
     (Orient.VERT, Direction.RIGHT):  (Orient.VERT,   0,  1),
 }
 
+DIRECTION_TO_ACTION: Dict[Direction, str] = {
+    Direction.UP: "U",
+    Direction.DOWN: "D",
+    Direction.LEFT: "L",
+    Direction.RIGHT: "R",
+}
+
+if hasattr(Direction, "SWITCH"):
+    DIRECTION_TO_ACTION[getattr(Direction, "SWITCH")] = "S"
+
+ACTION_TO_DIRECTION: Dict[str, Direction] = {
+    v: k for k, v in DIRECTION_TO_ACTION.items()
+}
+
 
 class State(NamedTuple):
     """Trạng thái bất biến, hashable (NamedTuple: hash/so sánh chạy ở mức C, nhanh hơn dataclass).

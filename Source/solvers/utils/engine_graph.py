@@ -8,7 +8,7 @@ from game.state import Direction
 ACTION_TO_DIRECTION = {
     "U": Direction.UP, "D": Direction.DOWN,
     "L": Direction.LEFT, "R": Direction.RIGHT,
-    "S": Direction.SWITCH,  # đổi khối khi đang ở chế độ split
+    "S": Direction.SWITCH,
 }
 DIRECTION_TO_ACTION = {direction: action for action, direction in ACTION_TO_DIRECTION.items()}
 
@@ -25,7 +25,7 @@ class EngineGraph:
         self.name = level.name
         self.start_state = engine.initial_state(level)
         self.goal_pos = level.goal
-        # Màn có công tắc split: khối bị dịch chuyển nên heuristic theo khoảng cách cần thận trọng
+        # Có công tắc split: khối bị dịch chuyển nên heuristic theo khoảng cách cần thận trọng
         self.has_split = any(sw.kind == Tile.SPLIT for sw in level.switch_at.values())
 
     def is_goal(self, state):

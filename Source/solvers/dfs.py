@@ -3,7 +3,7 @@
 from functools import partial
 
 from solvers.utils.searches import dfs_search, ids_search
-from solvers.utils.sovler import SolverBaseModel, solve_level_raw
+from solvers.utils.solver import SolverBaseModel, solve_level_raw
 from utils.measure import measured_solver
 
 

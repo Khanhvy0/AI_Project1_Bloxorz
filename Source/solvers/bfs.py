@@ -1,7 +1,7 @@
 """BFS kế thừa cùng lớp cha với UCS/A*; vẫn hỗ trợ solve(level) của TV1."""
 
 from solvers.utils.searches import bfs_search
-from solvers.utils.sovler import SolverBaseModel, solve_level_raw
+from solvers.utils.solver import SolverBaseModel, solve_level_raw
 from utils.measure import measured_solver
 
 
