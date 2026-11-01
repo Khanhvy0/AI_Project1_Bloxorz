@@ -13,7 +13,7 @@ class AStarSovler(SolverBaseModel):
         heurisitc (str): tên hàm heuristic được sử dụng.
     """
 
-    def __init__(self, graph: MazeGraph, heuristic: str = "chebyshev"):
+    def __init__(self, graph: MazeGraph, heuristic: str = "pose"):
         solver_func = partial(a_star_search, heuristic=heuristic)
         super().__init__(graph, solver_func)
 
